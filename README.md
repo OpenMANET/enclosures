@@ -1,8 +1,8 @@
-# enclosures
+# OpenMANET Enclosures
 
 This repository collects 3D-printable and off-the-shelf enclosure designs that support OpenMANET nodes and accessories.
 
-## Available enclosures
+## Available Enclosures
 
 | Name | Description |
 |------|-------------|
@@ -18,4 +18,4 @@ PRs that follow the structure above make it easier for others to build repeatabl
 
 ## License
 
-All content in this repository is provided under the [Creative Commons Attribution-NonCommercial 4.0 International](LICENSE) license. Commercial use requires explicit permission from the maintainers.
+All content in this repository is provided under the [Creative Commons Attribution-NonCommercial 4.0 International](LICENSE) license. Commercial use requires explicit permission from the creator.

@@ -8,6 +8,12 @@ This sample enclosure documents the expected level of detail for OpenMANET build
 - Demonstrates how to call out required vs optional parts so builders can adapt to their needs.
 - Intended for field-friendly deployments where ruggedness and quick maintenance matter.
 
+## Reference photo
+
+![Example enclosure build](pics/IMG_8359.jpg)
+
+> Store high-resolution photos inside a `pics/` subdirectory (or similar) and link to them with relative paths so GitHub renders the image inline.
+
 ## Recommended Parts List
 
 | Item | Optional |
