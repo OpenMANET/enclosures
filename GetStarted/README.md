@@ -38,6 +38,8 @@ All CAD source files (`*.f3z`) for each variant are included for remixing. Keep 
 | Wio WM6180 Wi-Fi HaLow mini PCIe Module | No | Primary radio |
 | WM1302 Pi Hat | No | Mate the HaLow card to the Pi |
 | External Antenna 868/915 MHz 2 dBi SMA Foldable | No | Two ports for UPS builds, single port for no-UPS |
+| [ZBM2 Mesh Goose Neck](https://zbm2industries.com/products/mesh-goose-neck?pr_prod_strat=pinned&pr_rec_id=181cdc03c&pr_rec_pid=8672213368984&pr_ref_pid=8101933973656&pr_seq=uniform) | Yes | 915 MHz LoRa/HaLow option with higher gain |
+| [ZBM2 Mesh Stubby](https://zbm2industries.com/products/mesh-stubby) | Yes | Compact Bluetooth/short-range diagnostic antenna |
 | SMA to U.FL cable assembly, 6" (150 mm) | No | Qty depends on variant above |
 | Raspberry Pi 4 Model B (1 GB or greater) | No | Core compute |
 | 21700 Rechargeable Batteries | Yes | Only for UPS builds that support them |
@@ -45,4 +47,3 @@ All CAD source files (`*.f3z`) for each variant are included for remixing. Keep 
 | Pisugar UPS 3 | Yes | Use with Pisugar variant |
 | Panda PAU06 USB Wi-Fi Adapter | Yes | Optional client radio |
 | USB GPS Receiver (u-blox based) | Yes | Optional timing source |
-
