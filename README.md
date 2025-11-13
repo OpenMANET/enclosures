@@ -6,7 +6,8 @@ This repository collects 3D-printable and off-the-shelf enclosure designs that s
 
 | Name | Description |
 |------|-------------|
-| [Example](example/README.md) | Reference build that demonstrates the expected documentation format and required details. |
+| [Get Started](GetStarted/README.md) | Simple Snap-fit Raspberry Pi 4 + HaLow enclosure with multiple UPS/no-UPS variants and ABS/ASA print guidance. |
+| [Open Field Node](OpenMPU5/README.md) | Aluminum or 3D printed field chassis that integrates a Pi 4B, Waveshare 3S UPS, and waterproof bulkhead connectors. |
 
 ## Contributing
 
