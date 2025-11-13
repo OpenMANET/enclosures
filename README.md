@@ -13,11 +13,11 @@ This repository collects 3D-printable and off-the-shelf enclosure designs that s
 
 **Get Started**
 
-![Get Started no-UPS build](GetStarted/pics/nobattery.webp)
+<img src="GetStarted/pics/nobattery.webp" alt="Get Started no-UPS build" width="450" />
 
 **OpenNot5**
 
-![OpenNot5 field build](OpenNot5/pics/image.webp)
+<img src="OpenNot5/pics/image.webp" alt="OpenNot5 field build" width="450" />
 
 ## Contributing
 
