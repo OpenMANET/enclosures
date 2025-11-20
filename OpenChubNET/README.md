@@ -11,7 +11,7 @@ This enclosure is designed for OpenMANET field nodes and integrates a Pi 4B with
 
 ## Order of build
 1. Print files 
-2. Mount the Pi4B and Waveshare D UPS to the printed mounting plate
+2. Mount the Pi4B and Waveshare UPS D to the printed mounting plate. Use the Waveshare UPS D flat head screws
 3. Add the Li-ion battery and wiring
 5. Assemble connectors to lid
 6. Connect antennas
