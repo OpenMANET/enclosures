@@ -86,13 +86,14 @@ Additionally there are punches for
 
 In Fusion 360 add the stencils to the top, combine, cut. 
 
-![Result](pics/7_top_connectors.png)
+<img src="pics/7_top_connectors.png" alt="Result" width="450" />
 
 ## Reference images
 
-![Outside view](pics/1_outside_view.png)
-![Case](pics/2_case.png)
-![Top](pics/3_top.png)
-![Mounting plate](pics/4_mounting_plate.png)
-![Assembly 1](pics/5_assembly_mp_ups_rpi_halow.png)
-![Assembly 2](pics/6_assembly_case_hw.png)
+
+<img src="pics/1_outside_view.png" alt="Outside view" width="450" />
+<img src="pics/2_case.png" alt="Case" width="450" />
+<img src="pics/3_top.png" alt="Top" width="450" />
+<img src="pics/4_mounting_plate.png" alt="Mounting plate" width="450" />
+<img src="pics/5_assembly_mp_ups_rpi_halow.png" alt="Assembly 1" width="450" />
+<img src="pics/6_assembly_case_hw.png" alt="Assembly 2" width="450" />
