@@ -63,13 +63,13 @@ Print standing up. No supports needed
 
 ### Mounting plate
 
-Print laying down or at 45 degree for fewer supports. Supports needed.
+Print laying down. No supports needed
 
 - [Board](stl/openMANET_mounting_plate.stl)
 
 ### Top
 
-Print laying down. No supports needed
+Print laying down or at 45 degree for fewer supports. Supports needed.
 
 - [Top](stl/openMANET_top_usbc_rj45_ntype_sma.stl)
 
