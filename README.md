@@ -19,6 +19,11 @@ This repository collects 3D-printable and off-the-shelf enclosure designs that s
 
 <img src="OpenNot5/pics/image.webp" alt="OpenNot5 field build" width="450" />
 
+**OpenChubNET**
+
+<img src="OpenChubNET/pics/1_outside_view.png" alt="OpenChubNET render" width="450" />
+
+
 ## Contributing
 
 1. Create a directory named after your enclosure.
