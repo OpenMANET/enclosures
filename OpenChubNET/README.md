@@ -3,15 +3,20 @@
 ## Overview
 This enclosure is designed for OpenMANET field nodes and integrates a Pi 4B with an internal battery-backed UPS.
 
-![Example enclosure build](pics/image.webp) 
+## Philosophy
+
+- A large enough case to fit the bulkiest SBC + UPS + Hat configuration. Room on one side of the case to pass through thin USB to power and USB eth.
+- A mounting board that the SBC sits on which slides into the case, it has holes to pass through cables. The board translates different SBC + UPS + Hat configurations to fit the case
+- Multiple top lids with various antenna configurations depending on antenna types, number of antennas, Power over USB, EUD eth over USB, buttons etc.
 
 ## Order of build
 1. Print files 
 2. Mount the Pi4B and Waveshare D UPS to the printed mounting plate
 3. Add the Li-ion battery and wiring
 5. Assemble connectors to lid
-4. Connect antennas
-4. Install and test OpenMANET as per [instructions](https://openmanet.github.io/docs/initial-setup.html)
+6. Connect antennas
+7. Connect USB cables to hardware
+8. Install and test OpenMANET as per [instructions](https://openmanet.github.io/docs/initial-setup.html)
 
 ## Parts List
 
@@ -67,6 +72,21 @@ Print laying down or at 45 degree for fewer supports. Supports needed.
 Print laying down. No supports needed
 
 - [Top](stl/openMANET_top_usbc_rj45_ntype_sma.stl)
+
+## DIY top lids
+
+There is a [top lid stencil](stl/openMANET_stencil_top.stl) which can be use to punch out holes to your liking
+
+Additionally there are punches for 
+
+[CAZN RJ45](stl/openMANET_stencil_cazn_rj45.stl)
+[CAZN USB](stl/openMANET_stencil_cazn_usb.stl)
+[NType](stl/openMANET_stencil_ntype.stl)
+[SMA](stl/openMANET_stencil_sma.stl)
+
+In Fusion 360 add the stencils to the top, combine, cut. 
+
+![Result](pic/7_top_connectors.png)
 
 ## Reference images
 
