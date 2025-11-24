@@ -75,7 +75,7 @@ Print laying down or at 45 degree for fewer supports. Supports needed.
 
 - [SMA Antenna](stl/openMANET_top_usbc_rj45_sma_sma.stl)
 
-<img src="pics/9_top_sma_antenna.png" alt="SMA Antenna" width="450" />
+<img src="pics/8_top_sma_antenna.png" alt="SMA Antenna" width="450" />
 
 - [NType Antenna](stl/openMANET_top_usbc_rj45_ntype_sma.stl)
 
