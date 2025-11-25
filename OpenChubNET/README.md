@@ -35,7 +35,7 @@ This enclosure is designed for OpenMANET field nodes and integrates a Pi 4B with
 - 1 x [SMA to UFL 20cm](https://www.aliexpress.com/item/1005005697399884.html)
 
 ### Antennas
-- 1 x [Gizont 915MHz gooseneck NType](https://www.aliexpress.com/item/1005006433957349.html)
+- 1 x [Gizont 915MHz gooseneck NType|SMA](https://www.aliexpress.com/item/1005006433957349.html)
 - 1 x [Gizont GPS Stubby](https://www.aliexpress.com/item/1005006022171372.html)
 
 ## Options
@@ -114,6 +114,7 @@ In Fusion 360 add the stencils to the top, combine, cut.
 * Additional top now with SMA antenna
 * Separate stencils for SMA (GPS and antenna)
 * Updated STLs M3 holes to screw the lid. Requires heat inserts
+* Added [OpenChubNET.3mf](stl/openMANET_OpenChubNET.stl)
 
 **251122**
 
