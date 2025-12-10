@@ -35,7 +35,7 @@ This enclosure is designed for OpenMANET field nodes and integrates a Pi 4B with
 - 1 x [SMA to UFL 20cm](https://www.aliexpress.com/item/1005005697399884.html)
 
 ### Antennas
-- 1 x [Gizont 915MHz gooseneck NType](https://www.aliexpress.com/item/1005006433957349.html)
+- 1 x [Gizont 915MHz gooseneck NType|SMA](https://www.aliexpress.com/item/1005006433957349.html)
 - 1 x [Gizont GPS Stubby](https://www.aliexpress.com/item/1005006022171372.html)
 
 ## Options
@@ -67,11 +67,20 @@ Print laying down. No supports needed
 
 - [Board](stl/openMANET_mounting_plate.stl)
 
-### Top
+### Tops
+
+There are two tops. One for NType and one for SMA antennas.
 
 Print laying down or at 45 degree for fewer supports. Supports needed.
 
-- [Top](stl/openMANET_top_usbc_rj45_ntype_sma.stl)
+- [SMA Antenna](stl/openMANET_top_usbc_rj45_sma_sma.stl)
+
+<img src="pics/8_top_sma_antenna.png" alt="SMA Antenna" width="450" />
+
+- [NType Antenna](stl/openMANET_top_usbc_rj45_ntype_sma.stl)
+
+<img src="pics/9_top_ntype_antenna.png" alt="NType Antenna" width="450" />
+
 
 ## DIY top lids
 
@@ -82,7 +91,8 @@ Additionally there are punches for
 - [CAZN RJ45](stl/openMANET_stencil_cazn_rj45.stl)
 - [CAZN USB](stl/openMANET_stencil_cazn_usb.stl)
 - [NType](stl/openMANET_stencil_ntype.stl)
-- [SMA](stl/openMANET_stencil_sma.stl)
+- [GPS SMA](stl/openMANET_stencil_gps_sma.stl)
+- [GPS SMA](stl/openMANET_stencil_sma.stl)
 
 In Fusion 360 add the stencils to the top, combine, cut. 
 
@@ -90,10 +100,22 @@ In Fusion 360 add the stencils to the top, combine, cut.
 
 ## Reference images
 
-
 <img src="pics/1_outside_view.png" alt="Outside view" width="450" />
 <img src="pics/2_case.png" alt="Case" width="450" />
 <img src="pics/3_top.png" alt="Top" width="450" />
 <img src="pics/4_mounting_plate.png" alt="Mounting plate" width="450" />
 <img src="pics/5_assembly_mp_ups_rpi_halow.png" alt="Assembly 1" width="450" />
 <img src="pics/6_assembly_case_hw.png" alt="Assembly 2" width="450" />
+
+## Changelog
+
+**251124**
+
+* Additional top now with SMA antenna
+* Separate stencils for SMA (GPS and antenna)
+* Updated STLs M3 holes to screw the lid. Requires heat inserts
+* Added [OpenChubNET.3mf](stl/openMANET_OpenChubNET.stl)
+
+**251122**
+
+* Initial commit
