@@ -10,6 +10,7 @@ This enclosure is designed for OpenMANET field nodes and integrates a Pi 4B with
 - Multiple top lids with various antenna configurations depending on antenna types, number of antennas, Power over USB, EUD eth over USB, buttons etc.
 
 ## Order of build
+
 1. Print files 
 2. Mount the Pi4B and Waveshare UPS D to the printed mounting plate. Use the Waveshare UPS D flat head screws
 3. Add the Li-ion battery and wiring
@@ -17,6 +18,8 @@ This enclosure is designed for OpenMANET field nodes and integrates a Pi 4B with
 6. Connect antennas
 7. Connect USB cables to hardware
 8. Install and test OpenMANET as per [instructions](https://openmanet.github.io/docs/initial-setup.html)
+
+Assembly images can be found at https://www.instagram.com/p/DSH5yTLCO6E
 
 ## Parts List
 
