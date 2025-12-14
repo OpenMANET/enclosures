@@ -82,18 +82,24 @@ Additionally there are punches for
 - [CAZN RJ45](stl/openMANET_stencil_cazn_rj45.stl)
 - [CAZN USB](stl/openMANET_stencil_cazn_usb.stl)
 - [NType](stl/openMANET_stencil_ntype.stl)
-- [SMA](stl/openMANET_stencil_sma.stl)
+- [SMA Large](stl/openMANET_stencil_sma_large.stl)
+- [SMA Small](stl/openMANET_stencil_sma_small.stl)
 
 In Fusion 360 add the stencils to the top, combine, cut. 
 
 <img src="pics/7_top_connectors.png" alt="Result" width="450" />
 
+## Bambu Labs project
+
+- [OpenChubnet slim](stl/OpenChubnet_slim.3mf)
+
 ## Reference images
 
-
 <img src="pics/1_outside_view.png" alt="Outside view" width="450" />
+<img src="pics/1_outside_view2.png" alt="Outside view" width="450" />
 <img src="pics/2_case.png" alt="Case" width="450" />
-<img src="pics/3_top.png" alt="Top" width="450" />
+<img src="pics/3_top_ntype.png" alt="Top" width="450" />
+<img src="pics/3_top_sma.png" alt="Top" width="450" />
 <img src="pics/4_mounting_plate.png" alt="Mounting plate" width="450" />
 <img src="pics/5_assembly_mp_ups_rpi_halow.png" alt="Assembly 1" width="450" />
 <img src="pics/6_assembly_case_hw.png" alt="Assembly 2" width="450" />
