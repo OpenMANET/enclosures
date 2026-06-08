@@ -10,6 +10,7 @@ This repository collects 3D-printable and off-the-shelf enclosure designs that s
 | [OpenNot5](OpenNot5/README.md) | Aluminum or 3D printed field chassis that integrates a Pi 4B, Waveshare 3S UPS, and waterproof bulkhead connectors. MakerWorld listing: https://makerworld.com/en/models/2128181-openmanet-radio-case |
 | [OpenChubNET](OpenChubNET/README.md) | 3D printed, Pi4B, Waveshare UPS D, CAZN connectors. Option for DIY top lids |
 | [Hammond Enclosure](Hammond/README.md) | OpenMANET enclosure for a Pi 4B using a Hammond 1457K1201BK case plus printed cap/carrier tray; optional inline connector simplifies switch-to-PiSugar wiring for easier rework. |
+| [PRC-148 / PRC-152 Battery](PRC-148-152-Battery/README.md) | Early community design for a 3S2P 18650 twist-lock radio battery and matching radio-side mount. |
 
 ## Other Prints
 
