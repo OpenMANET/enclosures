@@ -53,6 +53,7 @@ Choose either antenna option A or B for the 868 / 915 MHz radio.
 | Qty | Component | Specification / Source |
 |-----|-----------|------------------------|
 | 1 | Waveshare 3S UPS HAT | 3-cell 18650 UPS; USB-C; I2C fuel gauge; 5 V output |
+| 1 | USB-C FPC charging cable | [USB-C male soft-flat charging cable, available in 2-pin / 3-pin resistor variants](https://a.aliexpress.com/_mPbpBKL); select the correct variant for the build |
 | 3 | 18650 rechargeable batteries | 3.7 V nominal; 2500 mAh minimum; protected cells recommended |
 
 ### Fasteners and Inserts
