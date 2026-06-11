@@ -180,7 +180,8 @@ The [`cad/battery`](cad/battery) directory contains:
 - `BatteryTop v1` Fusion 360 and STL files
 - `18650 Holder Top` Fusion 360 and STL files
 - `18650 Holder Bottom` Fusion 360 and STL files
-- `Falcon Battery Tab v12` conductive twist-lock tab STL
+- `Falcon Battery Tab v13` conductive twist-lock tab Fusion 360 and STL files
+- `Falcon Battery Tab v12` previous conductive twist-lock tab STL
 - `PRC Cell.3mf` prepared multi-part print project
 
 ### Radio
@@ -188,8 +189,9 @@ The [`cad/battery`](cad/battery) directory contains:
 The [`cad/radio`](cad/radio) directory contains the matching
 `148_152_Radio_Bottom` Fusion 360 and STL files.
 
-Only an STL is currently available for the conductive `Falcon Battery Tab v12`;
-an editable F3D or STEP source would make fabrication changes easier.
+`Falcon Battery Tab v13` is the current available conductive-tab design and
+includes both an editable Fusion 360 source and an STL. The older `v12` STL is
+retained for reference.
 
 ## Assembly Outline
 
@@ -223,9 +225,8 @@ an editable F3D or STEP source would make fabrication changes easier.
 The following details need confirmation before this can be considered a
 repeatable build guide:
 
-- Editable `Falcon Battery Tab v12` CAD, preferably F3D or STEP. The available
-  STL is `v12`; the recovered fabrication-reference screenshot is for the older
-  `v8` tab.
+- Confirmed v13 tab fabrication settings and fit. The recovered
+  fabrication-reference screenshot is for the older `v8` tab.
 - Exact screws, heat-set inserts, and fastener lengths.
 - Verified BMS model, current rating, protection thresholds, and complete wiring
   diagram.
