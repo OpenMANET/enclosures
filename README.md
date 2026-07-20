@@ -11,6 +11,7 @@ This repository collects 3D-printable and off-the-shelf enclosure designs that s
 | [OpenChubNET](OpenChubNET/README.md) | 3D printed, Pi4B, Waveshare UPS D, CAZN connectors. Option for DIY top lids |
 | [Hammond Enclosure](Hammond/README.md) | OpenMANET enclosure for a Pi 4B using a Hammond 1457K1201BK case plus printed cap/carrier tray; optional inline connector simplifies switch-to-PiSugar wiring for easier rework. |
 | [PRC-148 / PRC-152 Battery](PRC-148-152-Battery/README.md) | Early community design for a 3S2P 18650 twist-lock radio battery and matching radio-side mount. |
+| [Sunkworks VLM-PT1 Enclosure](<Sunkworks VLM PT1 Enclosure/README.md>) | Compact two-piece enclosure for the OpenVLM VLM-KW USB voice/PTT interface, with print files, hardware requirements, and assembly notes. |
 
 ## Other Prints
 
@@ -39,6 +40,10 @@ This repository collects 3D-printable and off-the-shelf enclosure designs that s
 <img src="Hammond/pics/hammond2.jpg" alt="Hammond enclosure rear angle" width="450" />
 
 <img src="Hammond/pics/pisugar3.png" alt="Hammond enclosure open with PiSugar 3 Plus" width="450" />
+
+**Sunkworks VLM-PT1**
+
+<img src="Sunkworks%20VLM%20PT1%20Enclosure/pics/assembled-enclosure.jpg" alt="Assembled Sunkworks VLM-PT1 enclosure" width="450" />
 
 **GIZOisNT**
 
