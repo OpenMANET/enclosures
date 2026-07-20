@@ -1,0 +1,6 @@
+VLM-PT1 hardware notes
+
+- 5 x M3 x 3 mm heat-set inserts
+- 5 x M3 x 6 mm flat-head Phillips screws
+- CAZN USB-C cable: https://www.aliexpress.us/item/3256806032242845.html
+- Complete enclosure kits: https://sunkworkstec.com/products/sw-vlm-pt1
