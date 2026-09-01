@@ -1,10 +1,16 @@
 # _LAB-FLEET-OPS — lab-only fleet operations (NOT part of the MANET product)
 
-> ⚠️ **This directory is not part of the MANET product and must never be shipped
-> or committed.** It is git-ignored (`_LAB-FLEET-OPS/` in the repo `.gitignore`).
-> It collects the scripts, tooling and notes used to bring up and run the
-> **3-node CM4 lab fleet** on unrestricted spectrum. The leading underscore
-> sorts it to the top so it's easy to spot.
+> ⚠️ **This directory must never be shipped or committed into the MANET
+> *product* repo.** It is git-ignored there (`_LAB-FLEET-OPS/` in the product
+> `.gitignore`). It collects the scripts, tooling and notes used to bring up and
+> run the **3-node CM4 lab fleet** on unrestricted spectrum. The leading
+> underscore sorts it to the top so it's easy to spot.
+>
+> **Off-box backup:** this directory is versioned on its own in the private
+> Gitea repo **`robdoe/manet-lab-fleet-ops`**
+> (`https://gitea.local.robertdoes.com/robdoe/manet-lab-fleet-ops`). That repo is
+> the nested `.git` here; it is separate from the MANET product repo. Real
+> `.credentials` is git-ignored even there (see `.credentials.example`).
 >
 > Contents are original work for this fleet plus useful files copied from the
 > two non-primary repos (`~/projects/srs-manet`, `~/dev/mesh-voice-fleet-rollout`).
