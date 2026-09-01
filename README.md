@@ -72,6 +72,8 @@
 | `00-fix-usb-host.sh <ip> <host>` | enable CM4 USB host (`otg_mode=1`) so HaLow + OpenVLM enumerate; reboots |
 | `10-deploy-halow-1mhz.sh <ip> <host>` | 868 HaLow mesh (1 MHz, max power, duty/MPSW off); writes deterministic `wlan2.link`, reboots if naming needs it |
 | `20-open-24-5ghz.sh <ip> <host>` | install open00 regdb, force reg 00 persistently, open AP (drop country_code + `ieee80211d=0`), max TX power |
+| `30-fix-wlan-naming.sh <ip> <host>` | install the **boot-time** deterministic wlan-naming service (`node-files/`), closing the morse↔brcmfmac swap race for good |
+| `node-files/` | on-node payloads: `manet-fix-wlan-naming.sh` + `manet-wlan-naming.service` |
 | `status.sh [ip ...]` | one-shot health check of all nodes |
 | `voice-benchmark.py` | Lyra-vs-Opus codec benchmark (bitrate + CPU + RSS) via the GStreamer Python bindings (nodes have no `gst-launch-1.0`); scp to a node and `python3` it |
 | `regulatory_open00.db(.txt)` | the open world-domain regdb + source |
@@ -84,15 +86,14 @@
   sits under `[cm5]` in `config.txt` while these are CM4s, and `otg_mode=1` under
   `[cm4]` is commented out. Nothing on USB (HaLow, OpenVLM) enumerates until fixed
   (`00-fix-usb-host.sh`).
-- **Interface-name swap:** when the USB HaLow enumerates at boot without a
-  `wlan2.link`, it can grab `wlan0` and knock the MT7916s around, breaking the
-  mesh. `10-deploy-halow-1mhz.sh` writes a MAC-pinned `10-wlan2.link` and reboots
-  to make naming deterministic. **A single `wlan2.link` is not enough on a cold
-  boot** (seen on .20): if the morse enumerates late, an MT7916 can still take
-  `wlan2` first, so the morse lands on `wlan0`. Fix is to MAC-pin **all** radios
-  (`10-wlan0/1/2/3.link`) — done on .20. **After a HaLow module swap the morse
-  MAC changes**, so `10-wlan2.link` must be updated to the new MAC (e.g. .20's new
-  module is `0c:bf:74:00:2f:12`) or naming breaks again.
+- **Interface-name swap (SOLVED at boot — see below):** when the USB HaLow
+  enumerates late, udev's `.link` renames can't resolve a 2-cycle swap (morse
+  ↔ brcmfmac on `wlan2`↔`wlan3`, or morse grabbing `wlan0`), so a node can boot
+  with the s1g supplicant/hostapd bound to the wrong radio. MAC-pinning **all**
+  radios (`10-wlan0/1/2/3.link`) helps but is still a **race** — seen live on both
+  .20 and .17. **After a HaLow module swap the morse MAC changes**, so the
+  matching `10-wlan2.link` must be updated to the new MAC (e.g. .20 =
+  `0c:bf:74:00:2f:12`, .17 = `0c:bf:74:00:28:67`).
 - **Spare MT7916 re-enslaved into bat0:** the enslave-watch enslaves every iface
   in `/var/lib/mesh_if` + `/var/lib/halow_if`. If the idle radio (wlan1) is left
   in `/var/lib/mesh_if` it keeps getting pulled into bat0 on boot (harmless while
@@ -106,6 +107,26 @@
   ENODEV stuck state that needs a reboot. To (re)form the mesh, reboot the nodes
   (clean, block-free) and wait 1–2 min; SAE mutual-blocks last 300 s. Bring a new
   node up *after* the others have settled.
+
+## Boot-time deterministic wlan naming (`30-fix-wlan-naming.sh`, 2026-09-01)
+
+The permanent fix for the interface-name swap race. Two pieces, installed by
+`30-fix-wlan-naming.sh` and deployed on all 3 nodes:
+
+- **`/usr/local/bin/manet-fix-wlan-naming.sh`** — reads the MAC→name mapping from
+  `/etc/systemd/network/10-wlan*.link`, waits (≤40 s) for every pinned radio to
+  enumerate (the USB morse is the slow one), then forces the actual interfaces
+  to match. It parks every mismatched iface under a `tmp-<name>` first, so any
+  permutation — including a full 2-cycle swap — resolves cleanly.
+- **`manet-wlan-naming.service`** — oneshot, `Before=` the wireless services
+  (`wpa_supplicant-s1g-wlan2`, `hostapd`, `wpa_supplicant@wlan0`,
+  `batman-enslave[-watch]`), so naming is correct *before* anything binds a radio.
+
+This makes `fleet-tools/recover-wlan-swap.sh` a manual fallback rather than a
+routine necessity. **Verified 2026-09-01 on mesh-c370:** a simulated wlan2↔wlan3
+swap was fully corrected by the script (parked to temp, renamed back), and a
+real reboot ran the service before the wireless stack and came up clean
+(wlan2=morse, wlan3=brcmfmac, 868 ESTAB=2). Enabled on all 3 nodes.
 
 ## 868 TX-power / BCF experiment (step 2) — what was tried and why it failed
 

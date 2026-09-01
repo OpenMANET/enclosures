@@ -1,0 +1,17 @@
+[Unit]
+Description=MANET deterministic wlan naming (fix morse<->brcmfmac swap race)
+Documentation=https://gitea.local.robertdoes.com/robdoe/manet-lab-fleet-ops
+# Run after udev has had a go at naming, but BEFORE anything binds a radio, so
+# the s1g supplicant / hostapd / batman always see the correct wlan2/3.
+After=systemd-udevd.service
+Before=wpa_supplicant-s1g-wlan2.service hostapd.service wpa_supplicant@wlan0.service batman-enslave.service batman-enslave-watch.service network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/manet-fix-wlan-naming.sh
+# Bounded: the script self-limits its device wait to ~40s.
+TimeoutStartSec=90
+
+[Install]
+WantedBy=multi-user.target
