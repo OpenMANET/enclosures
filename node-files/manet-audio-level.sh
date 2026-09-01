@@ -28,8 +28,10 @@ if [ -z "$card" ]; then
     exit 0
 fi
 
-amixer -c "$card" sset PCM 100% unmute >/dev/null 2>&1
+amixer -c "$card" sset PCM 100% unmute >/dev/null 2>&1     # receive/playback: 0 dB
+amixer -c "$card" sset Mic 100% unmute >/dev/null 2>&1     # microphone: max gain
 alsactl store >/dev/null 2>&1 || true
-now=$(amixer -c "$card" sget PCM 2>/dev/null | grep -m1 'Front Left:' | sed 's/.*Playback //')
-log "card $card PCM playback set to ${now:-unknown}"
+pcm=$(amixer -c "$card" sget PCM 2>/dev/null | grep -m1 'Front Left:' | sed 's/.*Playback //')
+mic=$(amixer -c "$card" sget Mic 2>/dev/null | grep -m1 'Mono:'       | sed 's/.*Capture //')
+log "card $card set PCM=${pcm:-unknown} Mic=${mic:-unknown}"
 exit 0

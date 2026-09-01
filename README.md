@@ -104,13 +104,15 @@ it to come back between steps.
   onboard radio is blacklisted.
 - **Max TX power**: 5 GHz AP (MT7916) 30 dBm, 2.4 mesh 23–30 dBm (chip-clamped),
   HaLow 15 dBm (hard firmware clamp — see BCF section).
-- **Audio playback maxed** (2026-09-01): OpenVLM USB card `PCM` playback defaults
-  to −20 dB (46%) — quiet on receive. Forced to **0 dB (100%)** on all 3 nodes.
-  The stock `alsa-restore` is **unreliable** for this USB card (broken
+- **Audio levels maxed** (2026-09-01): on the OpenVLM USB card, **PCM playback =
+  100% (0 dB)** and **Mic capture = 100% (+23 dB, AGC on)** on all 3 nodes. The
+  stock `alsa-restore` is **unreliable** for this USB card (broken
   `90-alsa-restore.rules` + the card enumerates late), so persistence is via a
   dedicated **`manet-audio-level.service`** (installed by `50-...`) that waits
-  for the OpenVLM card at boot and sets PCM before `mesh-voice` starts — verified
-  across reboot. Mic left at +8 dB (57%) with AGC on.
+  for the OpenVLM card at boot and sets **both PCM and Mic** before `mesh-voice`
+  starts — verified across reboot. (Note: mic 100% is +23 dB, not 0 dB — the
+  card's max gain; drop the slider to ~34% for a literal 0 dB if too hot.)
+  Receive loudness above 0 dB is a separate software knob — see `voice_rx_gain_pct`.
 
 ## Scripts (run from this directory)
 
@@ -171,11 +173,11 @@ sidetone only** (mixed into this node's speaker path, never transmitted) and
 - **PTT keying sidetone** (`voice_ptt_beep=y`): a short **pop** on key-down and a
   **roger beep** on release — classic radio feel. Tunable: `voice_beep_key_hz`
   (500), `voice_beep_roger_hz` (900), `voice_beep_ms` (60), `voice_beep_level_pct` (25).
-- **Receive gain** (`voice_rx_gain_pct`, default 100): software gain applied after
-  the RX mixer, before the sink — lets receive audio go **louder than the ALSA
-  0 dB ceiling** (a `volume name=rxgain` element). Currently **130** on the fleet.
-  Persists natively via `mesh.conf` (daemon reads it at start). Watch for clipping
-  on loud talkers above ~130.
+- **Receive gain** (`voice_rx_gain_pct`, default 100 = unity/0 dB): software gain
+  applied after the RX mixer, before the sink — lets receive audio go **louder
+  than the ALSA 0 dB ceiling** (a `volume name=rxgain` element). Currently **100**
+  (unity) on the fleet. Persists natively via `mesh.conf` (daemon reads it at
+  start). Raise it (e.g. 130) if receive is too quiet; watch for clipping.
 - **Free-speak latch** (`voice_ptt_latch=y`): **triple-tap** the PTT
   (`voice_latch_presses`=3 within `voice_latch_window_ms`=1500) to **toggle**
   hands-free — the mic latches open with the button released; triple-tap again to
