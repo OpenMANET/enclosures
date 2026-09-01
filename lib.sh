@@ -40,6 +40,11 @@ ssh_root() {
   printf '%s\n' "$SUDO_PASS" | ssh $SSH_OPTS "$SSH_USER@$ip" "sudo -S bash -c '$*'" 2>&1 | grep -v '^\[sudo'
 }
 
+# Alias used by the fleet-tools/ scripts (copied from mesh-voice-fleet-rollout,
+# whose lib.sh named the root-runner ssh_sudo). Same behaviour as ssh_root:
+# runs the whole command as root via sudo -S bash -c.
+ssh_sudo() { ssh_root "$@"; }
+
 # Root command with an explicit sane PATH for tools in /usr/sbin & /usr/local/bin.
 ssh_rootp() {
   local ip="$1"; shift
