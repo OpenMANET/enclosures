@@ -74,7 +74,8 @@
 | `20-open-24-5ghz.sh <ip> <host>` | install open00 regdb, force reg 00 persistently, open AP (drop country_code + `ieee80211d=0`), max TX power |
 | `30-fix-wlan-naming.sh <ip> <host>` | install the **boot-time** deterministic wlan-naming service (`node-files/`), closing the morse↔brcmfmac swap race for good |
 | `40-enforce-radio-policy.sh <ip> <host>` | enforce radio roles: 5 GHz AP on the MT7916, blacklist the onboard CM4 Wi-Fi (idempotent) |
-| `node-files/` | on-node payloads: `manet-fix-wlan-naming.sh` + `manet-wlan-naming.service` + `manet-enforce-radio-policy.sh` |
+| `50-deploy-voice-features.sh <ip> <host>` | install patched `mesh-voice.py` (keying pop + free-speak latch) + enable in `mesh.conf` |
+| `node-files/` | on-node payloads: `manet-fix-wlan-naming.sh` + `manet-wlan-naming.service` + `manet-enforce-radio-policy.sh` + `mesh-voice.py` (patched daemon) |
 | `status.sh [ip ...]` | one-shot health check of all nodes |
 | `voice-benchmark.py` | Lyra-vs-Opus codec benchmark (bitrate + CPU + RSS) via the GStreamer Python bindings (nodes have no `gst-launch-1.0`); scp to a node and `python3` it |
 | `regulatory_open00.db(.txt)` | the open world-domain regdb + source |
@@ -108,6 +109,35 @@
   ENODEV stuck state that needs a reboot. To (re)form the mesh, reboot the nodes
   (clean, block-free) and wait 1–2 min; SAE mutual-blocks last 300 s. Bring a new
   node up *after* the others have settled.
+
+## Voice features: keying pop + free-speak latch (`50-deploy-voice-features.sh`, 2026-09-01)
+
+Adds two operator features to the product `mesh-voice.py`. Both are **local
+sidetone only** (mixed into this node's speaker path, never transmitted) and
+**config-gated** (default off in the product; enabled here via `mesh.conf`).
+`node-files/mesh-voice.py` is the patched daemon; the stock one is backed up to
+`/usr/local/bin/mesh-voice.py.stock-bak` on each node.
+
+- **PTT keying sidetone** (`voice_ptt_beep=y`): a short **pop** on key-down and a
+  **roger beep** on release — classic radio feel. Tunable: `voice_beep_key_hz`
+  (500), `voice_beep_roger_hz` (900), `voice_beep_ms` (60), `voice_beep_level_pct` (25).
+- **Free-speak latch** (`voice_ptt_latch=y`): **triple-tap** the PTT
+  (`voice_latch_presses`=3 within `voice_latch_window_ms`=1500) to **toggle**
+  hands-free — the mic latches open with the button released; triple-tap again to
+  leave. A **rising** two-tone announces latched, a **falling** two-tone
+  unlatched. Safety: PTT unplug / reboot drops out of free-speak. `latched` is
+  published in `/run/mesh-voice.json`.
+
+How it works in code: a muted `audiotestsrc`→`volume(beepvol)` is mixed into the
+RX `audiomixer`; `_beep([(hz,ms),...])` pulses it. `on_ptt` gained a tap counter
+(`_register_tap`) and `_toggle_latch`; releases are ignored while latched.
+**Verified on hardware 2026-09-01** (all four beeps audible, latch toggles cleanly).
+
+> NOTE: `node-files/mesh-voice.py` is a **copy of the product daemon + this
+> patch**. If the product `mesh-voice.py` is updated, re-apply the patch to the
+> new version (the changes are small and clearly marked: config keys near
+> `voice_test_tone`, the `beep` source in `rx_desc`, `_beep*`/`_register_tap`/
+> `_toggle_latch`, and the `_set_tx`/`on_ptt`/state-dict hooks).
 
 ## Radio-role policy (`40-enforce-radio-policy.sh`, 2026-09-01)
 
