@@ -18,9 +18,9 @@ set -uo pipefail
 SD="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; source "$SD/lib.sh"
 IP="${1:?usage: $0 <ip> <hostname>}"; HOST="${2:?usage: $0 <ip> <hostname>}"
 
-echo "### [1/5] USB host mode"          ; "$SD/00-fix-usb-host.sh"          "$IP" "$HOST" || exit 1
-echo "### [2/5] HaLow 868 / 1 MHz"      ; "$SD/10-deploy-halow-1mhz.sh"     "$IP" "$HOST" || exit 1
-echo "### [3/5] open 2.4/5 GHz"         ; "$SD/20-open-24-5ghz.sh"          "$IP" "$HOST" || exit 1
+echo "### [1/6] USB host mode"          ; "$SD/00-fix-usb-host.sh"          "$IP" "$HOST" || exit 1
+echo "### [2/6] HaLow 868 / 1 MHz"      ; "$SD/10-deploy-halow-1mhz.sh"     "$IP" "$HOST" || exit 1
+echo "### [3/6] open 2.4/5 GHz"         ; "$SD/20-open-24-5ghz.sh"          "$IP" "$HOST" || exit 1
 echo "### [4/6] boot-time wlan naming" ; "$SD/30-fix-wlan-naming.sh"       "$IP" "$HOST" || exit 1
 echo "### [5/6] radio-role policy"     ; "$SD/40-enforce-radio-policy.sh" "$IP" "$HOST" || exit 1
 echo "### [6/6] voice features"        ; "$SD/50-deploy-voice-features.sh" "$IP" "$HOST" || exit 1
