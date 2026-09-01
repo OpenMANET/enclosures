@@ -31,6 +31,25 @@
   (`ssh mesh-5ab8` works). Creds in `.credentials` (radio / sudo pass).
 - IPs drift across reboots — every mutating script verifies hostname first.
 
+### Adding a new node (one command)
+
+Flash the very-srs/MANET image, get the node on the LAN, then:
+
+```bash
+cd _LAB-FLEET-OPS
+./setup-node.sh --join <ip>          # generic flash: provisions mesh identity + full setup
+./setup-node.sh <ip>                 # image already provisioned for this fleet
+./setup-node.sh <ip> mesh-1a2b       # guarded (hostname you already know)
+then: ./status.sh <ip>
+```
+
+Credentials are read from `.credentials` (you don't pass them). Hostname is
+auto-detected if omitted. **`--join`** writes `MESH_SSID`/`MESH_KEY` (from
+`.credentials`) + `halow_regulatory_domain=EU` + `regulatory_domain=00` into the
+node's `/etc/mesh.conf` **before** the 868 step, so the node joins *this* mesh
+instead of forming its own. Prerequisite that stays outside the script: the
+image must trust the `~/.ssh/mesh-fleet` key (`radio@`) for SSH.
+
 ## What was configured
 
 - **868 MHz HaLow mesh, 1 MHz** (867.5 MHz, EU op_class 66 **ch9**), duty-cycle off,
@@ -71,8 +90,8 @@
 | Script | Purpose |
 |--------|---------|
 | `lib.sh` | shared SSH/sudo/put_file/verify helpers (safe against cached-sudo password leak + `&&` sudo-scope bugs) |
-| `.credentials` | `SSH_USER` / `SUDO_PASS` / `SSH_KEY` |
-| `setup-node.sh <ip> <host>` | full bring-up: runs 00 → 10 → 20 → 30 → 40 → 50 in order |
+| `.credentials` | `SSH_USER` / `SUDO_PASS` / `SSH_KEY` + `MESH_SSID` / `MESH_KEY` (fleet identity for `--join`) |
+| `setup-node.sh [--join] <ip> [host]` | **one-command bring-up** (00→10→20→30→40→50). Hostname auto-detected if omitted; `--join` first writes the fleet mesh identity into the node's `mesh.conf` so a generic flash joins this mesh |
 | `00-fix-usb-host.sh <ip> <host>` | enable CM4 USB host (`otg_mode=1`) so HaLow + OpenVLM enumerate; reboots |
 | `10-deploy-halow-1mhz.sh <ip> <host>` | 868 HaLow mesh (1 MHz, max power, duty/MPSW off); writes deterministic `wlan2.link`, reboots if naming needs it |
 | `20-open-24-5ghz.sh <ip> <host>` | install open00 regdb, force reg 00 persistently, open AP (drop country_code + `ieee80211d=0`), max TX power |
