@@ -334,6 +334,10 @@ class Config:
         self.ptt_latch = conf_bool(conf, "voice_ptt_latch", False)
         self.latch_presses = conf_int(conf, "voice_latch_presses", 3, 2, 6)
         self.latch_window_ms = conf_int(conf, "voice_latch_window_ms", 1500, 300, 5000)
+        # Receive-audio software gain applied after the mixer, before the sink.
+        # 100 = unity (ALSA 0 dB ceiling); >100 boosts louder than the hardware
+        # max. Watch for clipping on loud talkers.
+        self.rx_gain = conf_int(conf, "voice_rx_gain_pct", 100, 10, 400) / 100.0
         self.port = talk_group_port(self.channel)
 
 
@@ -826,7 +830,7 @@ class MeshVoice:
             "clock-rate=(int){rate},encoding-name=(string){encoding},"
             "payload=(int){pt}\" ! rtpbin.recv_rtp_sink_0 "
             "audiomixer name=mix ignore-inactive-pads=true ! "
-            "  audioconvert ! audioresample ! {play} "
+            "  audioconvert ! audioresample ! volume name=rxgain volume={rxgain} ! {play} "
             "audiotestsrc name=silence wave=silence is-live=true ! "
             "  audio/x-raw,rate={arate},channels=1,format=S16LE ! mix. "
             "{beep}"
@@ -834,7 +838,7 @@ class MeshVoice:
                  iface=self.cfg.iface, rate=clock_rate, encoding=encoding,
                  pt=RTP_PAYLOAD_TYPE, arate=raw_rate,
                  jitter=max(self.cfg.jitter_ms, packet_ms * 2),
-                 play=playback_desc,
+                 play=playback_desc, rxgain=self.cfg.rx_gain,
                  beep=(
                      "audiotestsrc name=beep wave=sine freq=500 is-live=true "
                      "volume=1.0 ! volume name=beepvol volume=0.0 ! "
@@ -858,6 +862,7 @@ class MeshVoice:
             self.payloader.set_property("ssrc", ssrc)
             self.my_ssrc = ssrc
         self.mixer = self.rx.get_by_name("mix")
+        self.rxgain = self.rx.get_by_name("rxgain")
         self.beepvol = self.rx.get_by_name("beepvol")
         self.beepsrc = self.rx.get_by_name("beep")
         self.rtpbin = self.rx.get_by_name("rtpbin")

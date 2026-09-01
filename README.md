@@ -171,6 +171,11 @@ sidetone only** (mixed into this node's speaker path, never transmitted) and
 - **PTT keying sidetone** (`voice_ptt_beep=y`): a short **pop** on key-down and a
   **roger beep** on release — classic radio feel. Tunable: `voice_beep_key_hz`
   (500), `voice_beep_roger_hz` (900), `voice_beep_ms` (60), `voice_beep_level_pct` (25).
+- **Receive gain** (`voice_rx_gain_pct`, default 100): software gain applied after
+  the RX mixer, before the sink — lets receive audio go **louder than the ALSA
+  0 dB ceiling** (a `volume name=rxgain` element). Currently **130** on the fleet.
+  Persists natively via `mesh.conf` (daemon reads it at start). Watch for clipping
+  on loud talkers above ~130.
 - **Free-speak latch** (`voice_ptt_latch=y`): **triple-tap** the PTT
   (`voice_latch_presses`=3 within `voice_latch_window_ms`=1500) to **toggle**
   hands-free — the mic latches open with the button released; triple-tap again to
