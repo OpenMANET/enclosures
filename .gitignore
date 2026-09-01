@@ -1,0 +1,5 @@
+# Real fleet credentials — never commit (contains SUDO_PASS)
+.credentials
+# staging/backup artifacts
+*.bak
+*.pre-*-bak
