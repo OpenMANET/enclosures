@@ -1,0 +1,14 @@
+[Unit]
+Description=MANET OpenVLM audio: force playback to 0 dB (reliable across the USB alsa-restore race)
+Documentation=https://gitea.local.robertdoes.com/robdoe/manet-lab-fleet-ops
+After=sound.target systemd-udevd.service
+Before=mesh-voice.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/manet-audio-level.sh
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target

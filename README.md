@@ -50,17 +50,21 @@
     allowed for AP mode` → mesh never joined; the fleet ran on 2.4 GHz alone.
     Rewritten to EU 1 MHz ch9; both nodes now peer (plink ESTAB, -54/-57 dBm).
 - **Open 2.4/5 GHz** via srs-manet's `regulatory_open00.db` + `reg 00`
-  (30 dBm, no DFS/NO-IR). 5 GHz = EUD AP; 2.4 GHz + 868 = mesh. On mesh-c370 the
-  redundant 5 GHz mesh (self-interfering with its own AP, 0 peers) was removed
-  (on mesh-c370: `wpa_supplicant@wlan1` masked + its `wlan1(-lobby).conf` moved to
-  `.disabled-lab`, so `mesh-boot-lobby` can't re-mesh it; `wlan1` stays down).
-- **Max TX power**: 5 GHz AP 30 dBm, 2.4 mesh 23–30 dBm (chip-clamped),
-  HaLow 15 dBm.
-- **Audio playback maxed** (2026-09-01): OpenVLM USB card `PCM` playback was at
-  −20 dB (46%) — quiet on receive. Set to **0 dB (100%)** on all 3 nodes and
-  persisted with `alsactl store` (restored each boot by `alsa-restore.service`,
-  `WantedBy=sound.target`). Mic left at +8 dB (57%) with AGC on. Nothing in the
-  product sets ALSA levels via amixer, so `asound.state` is the persistence path.
+  (30 dBm, no DFS/NO-IR). **5 GHz EUD AP = the MT7916 5 GHz iface (wlan1)** on
+  every node; 2.4 GHz (wlan0) + 868 (wlan2) = mesh. `wpa_supplicant@wlan1` stays
+  masked (its `wlan1(-lobby).conf` moved to `.disabled-lab`) so wlan1 never
+  meshes — hostapd owns it as the AP instead. See the radio-role policy section:
+  on .17/.20 the AP was moved off the onboard brcmfmac onto wlan1, and the
+  onboard radio is blacklisted.
+- **Max TX power**: 5 GHz AP (MT7916) 30 dBm, 2.4 mesh 23–30 dBm (chip-clamped),
+  HaLow 15 dBm (hard firmware clamp — see BCF section).
+- **Audio playback maxed** (2026-09-01): OpenVLM USB card `PCM` playback defaults
+  to −20 dB (46%) — quiet on receive. Forced to **0 dB (100%)** on all 3 nodes.
+  The stock `alsa-restore` is **unreliable** for this USB card (broken
+  `90-alsa-restore.rules` + the card enumerates late), so persistence is via a
+  dedicated **`manet-audio-level.service`** (installed by `50-...`) that waits
+  for the OpenVLM card at boot and sets PCM before `mesh-voice` starts — verified
+  across reboot. Mic left at +8 dB (57%) with AGC on.
 
 ## Scripts (run from this directory)
 
@@ -68,14 +72,14 @@
 |--------|---------|
 | `lib.sh` | shared SSH/sudo/put_file/verify helpers (safe against cached-sudo password leak + `&&` sudo-scope bugs) |
 | `.credentials` | `SSH_USER` / `SUDO_PASS` / `SSH_KEY` |
-| `setup-node.sh <ip> <host>` | full bring-up: runs 00 → 10 → 20 in order |
+| `setup-node.sh <ip> <host>` | full bring-up: runs 00 → 10 → 20 → 30 → 40 → 50 in order |
 | `00-fix-usb-host.sh <ip> <host>` | enable CM4 USB host (`otg_mode=1`) so HaLow + OpenVLM enumerate; reboots |
 | `10-deploy-halow-1mhz.sh <ip> <host>` | 868 HaLow mesh (1 MHz, max power, duty/MPSW off); writes deterministic `wlan2.link`, reboots if naming needs it |
 | `20-open-24-5ghz.sh <ip> <host>` | install open00 regdb, force reg 00 persistently, open AP (drop country_code + `ieee80211d=0`), max TX power |
 | `30-fix-wlan-naming.sh <ip> <host>` | install the **boot-time** deterministic wlan-naming service (`node-files/`), closing the morse↔brcmfmac swap race for good |
 | `40-enforce-radio-policy.sh <ip> <host>` | enforce radio roles: 5 GHz AP on the MT7916, blacklist the onboard CM4 Wi-Fi (idempotent) |
-| `50-deploy-voice-features.sh <ip> <host>` | install patched `mesh-voice.py` (keying pop + free-speak latch) + enable in `mesh.conf` |
-| `node-files/` | on-node payloads: `manet-fix-wlan-naming.sh` + `manet-wlan-naming.service` + `manet-enforce-radio-policy.sh` + `mesh-voice.py` (patched daemon) |
+| `50-deploy-voice-features.sh <ip> <host>` | install patched `mesh-voice.py` (keying pop + free-speak latch) + enable in `mesh.conf`; also installs `manet-audio-level.service` (OpenVLM PCM 0 dB at boot) |
+| `node-files/` | on-node payloads: `manet-fix-wlan-naming.sh`(+`.service`), `manet-enforce-radio-policy.sh`, `mesh-voice.py` (patched daemon), `manet-audio-level.sh`(+`.service`) |
 | `status.sh [ip ...]` | one-shot health check of all nodes |
 | `voice-benchmark.py` | Lyra-vs-Opus codec benchmark (bitrate + CPU + RSS) via the GStreamer Python bindings (nodes have no `gst-launch-1.0`); scp to a node and `python3` it |
 | `regulatory_open00.db(.txt)` | the open world-domain regdb + source |
@@ -158,7 +162,7 @@ idempotent (a compliant node is a no-op).
 a policy violation. Moved the AP to wlan1 (MT7916) and blacklisted brcmfmac.
 .14 was already compliant (no onboard radio) — confirmed a clean no-op. Verified
 persistent across reboot on .17 and .20 (brcmfmac not loaded, AP on wlan1,
-bridged into `br0`, mesh intact). Wired into `setup-node.sh` step 5/5 so every
+bridged into `br0`, mesh intact). Wired into `setup-node.sh` step 5/6 so every
 future node gets it.
 
 ## Boot-time deterministic wlan naming (`30-fix-wlan-naming.sh`, 2026-09-01)
@@ -178,8 +182,13 @@ The permanent fix for the interface-name swap race. Two pieces, installed by
 This makes `fleet-tools/recover-wlan-swap.sh` a manual fallback rather than a
 routine necessity. **Verified 2026-09-01 on mesh-c370:** a simulated wlan2↔wlan3
 swap was fully corrected by the script (parked to temp, renamed back), and a
-real reboot ran the service before the wireless stack and came up clean
-(wlan2=morse, wlan3=brcmfmac, 868 ESTAB=2). Enabled on all 3 nodes.
+real reboot ran the service before the wireless stack and came up clean. Enabled
+on all 3 nodes.
+
+> NOTE: once the radio-role policy blacklisted the onboard **brcmfmac** on .17/.20,
+> there is no wlan3 there anymore, so the morse↔brcmfmac wlan2↔wlan3 swap can no
+> longer occur on those nodes. The service is still the general guard (the USB
+> morse could still race an MT7916 for wlan0/wlan1) and remains enabled fleet-wide.
 
 ## 868 TX-power / BCF experiment (step 2) — what was tried and why it failed
 
@@ -215,13 +224,14 @@ rock-solid. Ruled out, exhaustively: config (byte-identical md5), firmware + wpa
 binary (identical md5), `sae_pwe` 0/1/2, many clean reboots, block-expiry waits,
 and a **HaLow module swap** (the new module *did* establish once — so the module
 is good). The fault is **intrinsic to that CM4 unit** (marginal USB/platform
-corrupting the SAE handshake). → **CM4 board being swapped.** Its HaLow config is
-left in place but the supplicant is disabled; after the board swap re-enable with:
+corrupting the SAE handshake). → **The CM4 board was retired**, and .20 mesh-c5ec
+is the active 3rd node in its place. (Historical: on a board swap you'd re-enable
+with `systemctl enable --now wpa_supplicant-s1g-wlan2 halow-txpower-wlan2`, or
+just re-run `./setup-node.sh`.)
 
-```bash
-ssh mesh-0825 'sudo systemctl enable --now wpa_supplicant-s1g-wlan2 halow-txpower-wlan2'
-# or just re-run:  ./setup-node.sh <ip> mesh-0825
-```
+> Not to be confused with .20's **module** fault later in the session (the BCF
+> experiment bricked .20's morse module; a module swap fixed it). .18 was a
+> whole-CM4 fault; .20 was a swappable USB module.
 
 ## Voice (task 2) — DONE
 
@@ -249,27 +259,30 @@ encoder+decoder), but ~52 % of *one* core on a quad-core CM4 is fine. Opus is th
 fallback for CPU-bound or bandwidth-rich setups. RSS is ~46 MB either way (process
 baseline; per-talker branch cost is the ~5.3 MB lyra / 0.6 MB opus in node_tools).
 
-## Reboot persistence test (task 3 — DONE, 2026-09-01)
+## Current verified fleet state (reboot-tested, 2026-09-01)
 
-All three nodes rebooted **together** (block-free SAE reform) and re-checked with
-`status.sh`. Everything we changed this session **persisted** and the full
-dual-band mesh re-formed on its own:
+Everything below persists across reboot (validated by rebooting nodes and
+re-checking with `status.sh`). This reflects the fleet **after** all changes
+(868 fix, radio-role policy, boot-time naming, audio-level fix, voice features):
 
 | Check | .14 mesh-5ab8 | .17 mesh-c370 | .20 mesh-c5ec |
 |-------|:---:|:---:|:---:|
 | 868 HaLow 867.5 MHz/1 MHz/15 dBm | 2 ESTAB | 2 ESTAB | 2 ESTAB |
-| 2.4 mesh (wlan0) | ✅ | ✅ | ✅ |
-| 5 GHz EUD AP | ✅ wlan1 | ✅ wlan3 | ✅ wlan3 |
-| bat0 = wlan0+wlan2, 4 neigh | ✅ | ✅ | ✅ |
+| 2.4 mesh (wlan0, MT7916) | ✅ | ✅ | ✅ |
+| **5 GHz EUD AP = wlan1 (MT7916)** | ✅ | ✅ | ✅ |
+| onboard brcmfmac blacklisted/unused | n/a (none) | ✅ | ✅ |
+| bat0 = wlan0 + wlan2 | ✅ | ✅ | ✅ |
 | reg domain 00 | ✅ | ✅ | ✅ |
-| ALSA PCM 100% / 0 dB | ✅ | ✅ | ✅ |
-| wlan2 = morse (naming pin) | ✅ | ✅ | ✅ |
-| spare wlan1 out of bat0 | n/a | ✅ | ✅ |
-| 8/8 services active | ✅ | ✅ | ✅ |
+| ALSA PCM 100% / 0 dB (via manet-audio-level) | ✅ | ✅ | ✅ |
+| wlan2 = morse (naming pin + boot service) | ✅ | ✅ | ✅ |
+| voice: keying pop + free-speak latch | ✅ | ✅ | ✅ |
+| all services active | ✅ | ✅ | ✅ |
 
-Services verified active on every node: `hostapd`, `wpa_supplicant@wlan0`,
-`wpa_supplicant-s1g-wlan2`, `batman-enslave-watch`, `mesh-status`, `node-manager`,
-`mesh-voice`, `manet-regdom-open`. `status.sh` node list updated .18 → .20.
+Services verified on every node (`status.sh` checks all of these): `hostapd`,
+`wpa_supplicant@wlan0`, `wpa_supplicant-s1g-wlan2`, `batman-enslave-watch`,
+`mesh-status`, `node-manager`, `mesh-voice`, `manet-regdom-open`,
+`manet-wlan-naming` (oneshot), `manet-audio-level` (oneshot). `status.sh` node
+list is .14/.17/.20 (.18 retired).
 
 ## Session resume (for the next agent / window)
 

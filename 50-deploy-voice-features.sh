@@ -9,16 +9,25 @@
 #                               latch beeps announce the mode.
 # Both are LOCAL only (mixed into the speaker path, never transmitted) and are
 # enabled via /etc/mesh.conf keys added here. Backs up the stock daemon once.
+# Also installs manet-audio-level.service, which forces the OpenVLM playback to
+# 0 dB at boot (the stock alsa-restore is unreliable for this USB card).
 # Idempotent; restarts mesh-voice.
 # ============================================================================
 set -uo pipefail
 SD="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; source "$SD/lib.sh"
 IP="${1:?usage: $0 <ip> <hostname>}"; HOST="${2:?usage: $0 <ip> <hostname>}"
 DAEMON="$SD/node-files/mesh-voice.py"
+ALVL="$SD/node-files/manet-audio-level.sh"
+ALVLSVC="$SD/node-files/manet-audio-level.service"
 [[ -f "$DAEMON" ]] || { fail "missing $DAEMON"; exit 1; }
 python3 -m py_compile "$DAEMON" || { fail "patched daemon has a syntax error"; exit 1; }
 
 verify_hostname "$IP" "$HOST" || exit 1
+
+log "installing boot-time OpenVLM audio-level fix ..."
+put_scp "$ALVL"    "$IP" /usr/local/bin/manet-audio-level.sh 755
+put_scp "$ALVLSVC" "$IP" /etc/systemd/system/manet-audio-level.service 644
+ssh_rootp "$IP" "systemctl daemon-reload; systemctl enable manet-audio-level.service >/dev/null 2>&1; /usr/local/bin/manet-audio-level.sh"
 
 log "backing up stock mesh-voice.py (once) + installing patched daemon ..."
 ssh_root "$IP" "test -f /usr/local/bin/mesh-voice.py.stock-bak || cp /usr/local/bin/mesh-voice.py /usr/local/bin/mesh-voice.py.stock-bak"
