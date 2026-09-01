@@ -3,3 +3,7 @@
 # staging/backup artifacts
 *.bak
 *.pre-*-bak
+
+# python bytecode
+__pycache__/
+*.pyc
