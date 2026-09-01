@@ -33,22 +33,49 @@
 
 ### Adding a new node (one command)
 
-Flash the very-srs/MANET image, get the node on the LAN, then:
+Flash the very-srs/MANET image, get the node on the LAN (note its DHCP IP), then:
 
 ```bash
+# 1. authorize the fleet SSH key for the radio user (prompts for the node's
+#    radio password; needs password SSH enabled on the fresh image)
+ssh-copy-id -i ~/.ssh/mesh-fleet.pub radio@<ip>
+
+# 2. sanity check: key auth + sudo both work (no password prompt expected)
 cd _LAB-FLEET-OPS
+source lib.sh
+ssh -i "$SSH_KEY" radio@<ip> hostname          # key auth OK if this prints the hostname
+ssh_root <ip> true && echo "sudo OK"            # SUDO_PASS matches the node
+
+# 3. one-command bring-up
 ./setup-node.sh --join <ip>          # generic flash: provisions mesh identity + full setup
 ./setup-node.sh <ip>                 # image already provisioned for this fleet
 ./setup-node.sh <ip> mesh-1a2b       # guarded (hostname you already know)
-then: ./status.sh <ip>
+
+# 4. confirm
+./status.sh <ip>
 ```
 
 Credentials are read from `.credentials` (you don't pass them). Hostname is
 auto-detected if omitted. **`--join`** writes `MESH_SSID`/`MESH_KEY` (from
 `.credentials`) + `halow_regulatory_domain=EU` + `regulatory_domain=00` into the
 node's `/etc/mesh.conf` **before** the 868 step, so the node joins *this* mesh
-instead of forming its own. Prerequisite that stays outside the script: the
-image must trust the `~/.ssh/mesh-fleet` key (`radio@`) for SSH.
+instead of forming its own.
+
+**Two prerequisites that live outside the script** (both must be true or
+`setup-node.sh` fails partway):
+
+1. **SSH key trust** — the node must accept the `~/.ssh/mesh-fleet` key for
+   `radio@`. `ssh-copy-id` seeds it, but that itself needs the fresh image to
+   allow password SSH (or the key baked in at flash time — if password login is
+   disabled *and* no key is present, you can't bootstrap over SSH at all).
+2. **Sudo password match** — every step runs remote commands via
+   `sudo -S "$SUDO_PASS"`, so the node's `radio` sudo password must equal
+   `SUDO_PASS` in `.credentials` (or update `.credentials` to match the node
+   first).
+
+Expect the node to **reboot a couple of times** during `00` (USB-host enable)
+and `10`/`30` (deterministic naming) — that is normal; `setup-node.sh` waits for
+it to come back between steps.
 
 ## What was configured
 
