@@ -19,9 +19,9 @@
 
 | Node | Hostname | Role notes |
 |------|----------|-----------|
-| 10.24.17.14 | mesh-5ab8 | 2× MT7916 (2.4 mesh + 5 GHz AP), USB HaLow, OpenVLM |
-| 10.24.17.17 | mesh-c370 | 3 radios: MT7916 2.4 mesh + MT7916(idle) + onboard brcmfmac 5 GHz AP, USB HaLow, OpenVLM |
-| 10.24.17.20 | mesh-c5ec | 3 radios: MT7916 2.4 mesh (wlan0) + MT7916 idle (wlan1, masked) + onboard brcmfmac 5 GHz AP (wlan3), USB HaLow (wlan2), OpenVLM. Active 3rd node; supersedes the retired .18 mesh-0825 board. |
+| 10.24.17.14 | mesh-5ab8 | MT7916 (wlan0 2.4 mesh + wlan1 5 GHz AP), USB HaLow (wlan2), OpenVLM. No onboard radio. |
+| 10.24.17.17 | mesh-c370 | MT7916 (wlan0 2.4 mesh + wlan1 5 GHz AP), USB HaLow (wlan2), OpenVLM. Onboard brcmfmac **blacklisted/unused** (was wrongly the AP). |
+| 10.24.17.20 | mesh-c5ec | MT7916 (wlan0 2.4 mesh + wlan1 5 GHz AP), USB HaLow (wlan2), OpenVLM. Onboard brcmfmac **blacklisted/unused** (was wrongly the AP). Active 3rd node; supersedes the retired .18 mesh-0825 board. |
 
 > Historical: **.18 mesh-0825** was the original 3rd node — its CM4 corrupted the
 > HaLow SAE handshake (see saga below) and was retired in favour of .20 mesh-c5ec.
@@ -73,7 +73,8 @@
 | `10-deploy-halow-1mhz.sh <ip> <host>` | 868 HaLow mesh (1 MHz, max power, duty/MPSW off); writes deterministic `wlan2.link`, reboots if naming needs it |
 | `20-open-24-5ghz.sh <ip> <host>` | install open00 regdb, force reg 00 persistently, open AP (drop country_code + `ieee80211d=0`), max TX power |
 | `30-fix-wlan-naming.sh <ip> <host>` | install the **boot-time** deterministic wlan-naming service (`node-files/`), closing the morse↔brcmfmac swap race for good |
-| `node-files/` | on-node payloads: `manet-fix-wlan-naming.sh` + `manet-wlan-naming.service` |
+| `40-enforce-radio-policy.sh <ip> <host>` | enforce radio roles: 5 GHz AP on the MT7916, blacklist the onboard CM4 Wi-Fi (idempotent) |
+| `node-files/` | on-node payloads: `manet-fix-wlan-naming.sh` + `manet-wlan-naming.service` + `manet-enforce-radio-policy.sh` |
 | `status.sh [ip ...]` | one-shot health check of all nodes |
 | `voice-benchmark.py` | Lyra-vs-Opus codec benchmark (bitrate + CPU + RSS) via the GStreamer Python bindings (nodes have no `gst-launch-1.0`); scp to a node and `python3` it |
 | `regulatory_open00.db(.txt)` | the open world-domain regdb + source |
@@ -107,6 +108,28 @@
   ENODEV stuck state that needs a reboot. To (re)form the mesh, reboot the nodes
   (clean, block-free) and wait 1–2 min; SAE mutual-blocks last 300 s. Bring a new
   node up *after* the others have settled.
+
+## Radio-role policy (`40-enforce-radio-policy.sh`, 2026-09-01)
+
+**Policy for all nodes, present and future:**
+- **MESH** = USB MM8108 HaLow (morse, wlan2) **+** the **2.4 GHz** interface of the
+  MT7916 (wlan0). Both enslaved to `bat0`.
+- **5 GHz EUD user AP** = the **5 GHz** interface of the **MT7916** (wlan1).
+- **Any other Wi-Fi (e.g. the onboard CM4 brcmfmac) is NOT used** — module
+  blacklisted (`/etc/modprobe.d/manet-blacklist-onboard-wifi.conf`).
+
+Each node has **one dual-band MT7916** presenting wlan0 (Band 1 = 2.4) and wlan1
+(Band 2 = 5 GHz). `40-enforce-radio-policy.sh` matches radios by driver + band
+(not fixed wlanN), so it is robust to naming and future hardware, and is
+idempotent (a compliant node is a no-op).
+
+**What it corrected (2026-09-01):** .17 and .20 shipped with the 5 GHz AP on the
+**onboard brcmfmac** and the MT7916's 5 GHz interface (wlan1) left idle/masked —
+a policy violation. Moved the AP to wlan1 (MT7916) and blacklisted brcmfmac.
+.14 was already compliant (no onboard radio) — confirmed a clean no-op. Verified
+persistent across reboot on .17 and .20 (brcmfmac not loaded, AP on wlan1,
+bridged into `br0`, mesh intact). Wired into `setup-node.sh` step 5/5 so every
+future node gets it.
 
 ## Boot-time deterministic wlan naming (`30-fix-wlan-naming.sh`, 2026-09-01)
 
