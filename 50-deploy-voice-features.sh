@@ -43,6 +43,19 @@ log "restarting mesh-voice (stop -> wait for the card to free -> start) ..."
 ssh_rootp "$IP" 'systemctl stop mesh-voice.service
   for i in $(seq 1 10); do fuser /dev/snd/pcmC0D0p >/dev/null 2>&1 || break; sleep 1; done
   systemctl start mesh-voice.service; sleep 3'
+
+# VOICE-tab HTML-nesting fix for the /manage UI (from mesh-voice-fleet-rollout):
+# manet_manage.py nested <div id=tab-voice> inside the display:none
+# <div id=tab-config>, so the VOICE tab was always hidden (blank page at
+# /manage/#voice). Idempotent patcher; restart mesh-status if it changed anything.
+VTAB="$SD/node-files/fix_voice_tab.py"
+if [[ -f "$VTAB" ]]; then
+  log "applying /manage VOICE-tab fix ..."
+  put_scp "$VTAB" "$IP" /tmp/fix_voice_tab.py 755
+  vout=$(ssh_rootp "$IP" 'python3 /tmp/fix_voice_tab.py 2>&1'); echo "  $vout"
+  echo "$vout" | grep -qi 'Patched' && ssh_rootp "$IP" 'systemctl restart mesh-status.service'
+  ssh_cmd "$IP" 'rm -f /tmp/fix_voice_tab.py' 2>/dev/null
+fi
 echo "  --- status ---"
 ssh_rootp "$IP" '
 echo "  mesh-voice: $(systemctl is-active mesh-voice.service)"

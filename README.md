@@ -190,6 +190,18 @@ RX `audiomixer`; `_beep([(hz,ms),...])` pulses it. `on_ptt` gained a tap counter
 (`_register_tap`) and `_toggle_latch`; releases are ignored while latched.
 **Verified on hardware 2026-09-01** (all four beeps audible, latch toggles cleanly).
 
+### /manage VOICE-tab blank-page fix (`node-files/fix_voice_tab.py`)
+
+Separate from the daemon: the management UI (`manet_manage.py`, served by
+`mesh-status` on port 80) nested `<div id="tab-voice">` **inside** the
+`display:none` `<div id="tab-config">`, so the VOICE tab was always hidden —
+`http://<mesh-ip>/manage/?theme=dark#voice` rendered **blank**. `fix_voice_tab.py`
+(idempotent; from `~/dev/mesh-voice-fleet-rollout`) rewrites them as sibling
+divs and restarts `mesh-status`. Applied fleet-wide 2026-09-01 and folded into
+`50-deploy-voice-features.sh` so re-runs / new nodes get it. **Hard-refresh the
+browser** (Ctrl/Cmd+Shift+R) after applying — the old HTML caches. Backs up to
+`/usr/local/bin/manet_manage.py.bak`.
+
 > NOTE: `node-files/mesh-voice.py` is a **copy of the product daemon + this
 > patch**. If the product `mesh-voice.py` is updated, re-apply the patch to the
 > new version (the changes are small and clearly marked: config keys near
