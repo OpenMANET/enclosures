@@ -126,8 +126,9 @@ it to come back between steps.
 | `20-open-24-5ghz.sh <ip> <host>` | install open00 regdb, force reg 00 persistently, open AP (drop country_code + `ieee80211d=0`), max TX power |
 | `30-fix-wlan-naming.sh <ip> <host>` | install the **boot-time** deterministic wlan-naming service (`node-files/`), closing the morse↔brcmfmac swap race for good |
 | `40-enforce-radio-policy.sh <ip> <host>` | enforce radio roles: 5 GHz AP on the MT7916, blacklist the onboard CM4 Wi-Fi (idempotent) |
-| `50-deploy-voice-features.sh <ip> <host>` | install patched `mesh-voice.py` (keying pop + free-speak latch) + enable in `mesh.conf`; also installs `manet-audio-level.service` (OpenVLM PCM 0 dB at boot) |
-| `node-files/` | on-node payloads: `manet-fix-wlan-naming.sh`(+`.service`), `manet-enforce-radio-policy.sh`, `mesh-voice.py` (patched daemon), `manet-audio-level.sh`(+`.service`) |
+| `50-deploy-voice-features.sh <ip> <host>` | install patched `mesh-voice.py` (keying pop + free-speak latch) + enable in `mesh.conf`; also installs `manet-audio-level.service` (OpenVLM PCM 0 dB at boot) + `fix_voice_tab.py` (/manage voice-tab fix) |
+| `60-set-cpu-governor.sh <ip> <host>` | schedutil governor + 1000 MHz cap; disables the stock `cpu-powersave.service` |
+| `node-files/` | on-node payloads: `manet-fix-wlan-naming.sh`(+`.service`), `manet-enforce-radio-policy.sh`, `mesh-voice.py`, `manet-audio-level.sh`(+`.service`), `fix_voice_tab.py`, `manet-cpu-perf.sh`(+`.service`) |
 | `status.sh [ip ...]` | one-shot health check of all nodes |
 | `voice-benchmark.py` | Lyra-vs-Opus codec benchmark (bitrate + CPU + RSS) via the GStreamer Python bindings (nodes have no `gst-launch-1.0`); scp to a node and `python3` it |
 | `regulatory_open00.db(.txt)` | the open world-domain regdb + source |
@@ -207,6 +208,25 @@ browser** (Ctrl/Cmd+Shift+R) after applying — the old HTML caches. Backs up to
 > new version (the changes are small and clearly marked: config keys near
 > `voice_test_tone`, the `beep` source in `rx_desc`, `_beep*`/`_register_tap`/
 > `_toggle_latch`, and the `_set_tx`/`on_ptt`/state-dict hooks).
+
+## CPU governor (`60-set-cpu-governor.sh`, 2026-09-01)
+
+The stock **`cpu-powersave.service`** pinned the CM4 to **600 MHz** (powersave
+governor), capped max to ~1000 MHz, and tried to **offline cores 2 & 3** — the
+core-offline write is rejected, so it exited 1 and sat as a **failed unit** on
+every node. 600 MHz is a poor fit for a real-time voice node (Lyra is CPU-heavy;
+mesh-voice alone was ~75 % of one core *at 600 MHz*).
+
+Replaced with **`manet-cpu-perf.service`**: governor **`schedutil`**, max freq
+**capped at 1000 MHz**, all 4 cores online. schedutil idles down to 600 MHz when
+quiet and clocks to 1000 MHz under load — more voice headroom than the 600 MHz
+pin, still power-friendly at idle (good even for the battery-powered node), and
+without the heat/draw of the full 1500 MHz. `60-set-cpu-governor.sh` **disables**
+(not masks — it's a real unit file) the stock service and clears its failed
+state. **Not** cutting cores: measured idle load is ~1.3 of 4 cores and each
+simultaneous talker adds a Lyra decode branch, so 4 cores is the right headroom.
+RAM (16–33 % used) and disk (16–20 %) have ample headroom — nothing to reclaim
+there. **Verified persistent across reboot** (schedutil/1000 MHz, 0 failed units).
 
 ## Radio-role policy (`40-enforce-radio-policy.sh`, 2026-09-01)
 

@@ -1,0 +1,14 @@
+[Unit]
+Description=MANET CPU: schedutil governor + 1000 MHz cap (replaces cpu-powersave)
+Documentation=https://gitea.local.robertdoes.com/robdoe/manet-lab-fleet-ops
+After=basic.target
+# Belt & braces: if the stock throttle is ever unmasked, run after it and win.
+After=cpu-powersave.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/manet-cpu-perf.sh
+
+[Install]
+WantedBy=multi-user.target

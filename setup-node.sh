@@ -9,6 +9,7 @@
 #   30-fix-wlan-naming.sh     boot-time deterministic wlan naming (swap-proof)
 #   40-enforce-radio-policy.sh  AP on MT7916 5 GHz; blacklist onboard CM4 Wi-Fi
 #   50-deploy-voice-features.sh PTT keying pop + triple-tap free-speak latch + audio
+#   60-set-cpu-governor.sh    schedutil governor + 1000 MHz cap (mask cpu-powersave)
 #
 # Credentials come from .credentials (SSH_USER/SUDO_PASS/SSH_KEY) — you do not
 # pass them. Each sub-script is idempotent and safe to re-run.
@@ -58,10 +59,11 @@ if [[ "$JOIN" == "1" ]]; then
   ok "mesh identity set on $HOST"
 fi
 
-echo "### [1/6] USB host mode"          ; "$SD/00-fix-usb-host.sh"          "$IP" "$HOST" || exit 1
-echo "### [2/6] HaLow 868 / 1 MHz"      ; "$SD/10-deploy-halow-1mhz.sh"     "$IP" "$HOST" || exit 1
-echo "### [3/6] open 2.4/5 GHz"         ; "$SD/20-open-24-5ghz.sh"          "$IP" "$HOST" || exit 1
-echo "### [4/6] boot-time wlan naming"  ; "$SD/30-fix-wlan-naming.sh"       "$IP" "$HOST" || exit 1
-echo "### [5/6] radio-role policy"      ; "$SD/40-enforce-radio-policy.sh"  "$IP" "$HOST" || exit 1
-echo "### [6/6] voice features"         ; "$SD/50-deploy-voice-features.sh" "$IP" "$HOST" || exit 1
+echo "### [1/7] USB host mode"          ; "$SD/00-fix-usb-host.sh"          "$IP" "$HOST" || exit 1
+echo "### [2/7] HaLow 868 / 1 MHz"      ; "$SD/10-deploy-halow-1mhz.sh"     "$IP" "$HOST" || exit 1
+echo "### [3/7] open 2.4/5 GHz"         ; "$SD/20-open-24-5ghz.sh"          "$IP" "$HOST" || exit 1
+echo "### [4/7] boot-time wlan naming"  ; "$SD/30-fix-wlan-naming.sh"       "$IP" "$HOST" || exit 1
+echo "### [5/7] radio-role policy"      ; "$SD/40-enforce-radio-policy.sh"  "$IP" "$HOST" || exit 1
+echo "### [6/7] voice features"         ; "$SD/50-deploy-voice-features.sh" "$IP" "$HOST" || exit 1
+echo "### [7/7] cpu governor"           ; "$SD/60-set-cpu-governor.sh"      "$IP" "$HOST" || exit 1
 echo "### done — run: ./status.sh $IP"

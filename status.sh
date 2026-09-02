@@ -35,7 +35,7 @@ for IP in "${NODES[@]}"; do
       echo "  HaLow      : supplicant inactive"
     fi
     echo "  services   :"
-    for s in hostapd wpa_supplicant@wlan0 wpa_supplicant-s1g-wlan2 batman-enslave-watch mesh-status node-manager mesh-voice manet-regdom-open manet-wlan-naming manet-audio-level; do
+    for s in hostapd wpa_supplicant@wlan0 wpa_supplicant-s1g-wlan2 batman-enslave-watch mesh-status node-manager mesh-voice manet-regdom-open manet-wlan-naming manet-audio-level manet-cpu-perf; do
       printf "    %-28s %s\n" "$s" "$(systemctl is-active $s.service 2>/dev/null)"; done
   '
   echo
