@@ -7,15 +7,20 @@
 # and key service states. Defaults to the three lab nodes if no IPs given.
 # ============================================================================
 set -uo pipefail
-SD="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; source "$SD/lib.sh"
-NODES=("$@"); [[ ${#NODES[@]} -eq 0 ]] && NODES=(10.24.17.14 10.24.17.17 10.24.17.20)
+SD="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SD/lib.sh"
+NODES=("$@")[[ ${#NODES[@]} -eq 0 ]] && NODES=(10.30.2.46 10.30.2.61 10.30.2.101 10.30.2.166)
 
 for IP in "${NODES[@]}"; do
   hn=$(ssh_cmd "$IP" hostname 2>/dev/null)
   echo "======================================================================"
   echo " $IP  (${hn:-UNREACHABLE})"
   echo "======================================================================"
-  [[ -z "$hn" ]] && { echo "  (no SSH — powered off or IP drifted)"; echo; continue; }
+  [[ -z "$hn" ]] && {
+    echo "  (no SSH — powered off or IP drifted)"
+    echo
+    continue
+  }
   ssh_rootp "$IP" '
     echo "  reg domain : $(iw reg get | grep -m1 country | sed "s/^/  /")"
     echo "  interfaces :"
