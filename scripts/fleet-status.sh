@@ -610,6 +610,113 @@ run_script() {  # $1 script under scripts/, $2... args that precede the IPs
     return 0
 }
 
+# Read one node's region state; sets R_STATE to "reg halow freq" (or "? ? ?").
+region_state() {  # $1 ip
+    R_STATE=$(node_root_script "$1" "$REPO_ROOT/scripts/remote/region-state.sh" 2>/dev/null)
+    [ -n "$R_STATE" ] || R_STATE="? ? ?"
+    return 0
+}
+
+# The HaLow plan family a country code maps to, mirroring manet-region.py:
+# US is its own plan (907 MHz); every other country runs the EU channel plan
+# (863.5 MHz). The two plans share no channels.
+region_plan() {  # $1 CC -> echoes US or EU
+    if [ "$1" = "US" ]; then
+        echo US
+    else
+        echo EU
+    fi
+}
+
+region_verify() {  # $1 ip: confirm the node is back on the expected plan
+    region_state "$1"
+    local reg hal freq
+    read -r reg hal freq <<<"$R_STATE"
+    print "$C_OK" "   $1 back: regulatory=$reg HaLow=$hal ${freq} kHz"
+    return 0
+}
+
+# Reboot the given nodes one at a time; the laptop's AP node goes last.
+region_reboot() {
+    local ap front="" apnode="" ip
+    ask "   which node's AP is the laptop on? (IP, or Enter if none/ethernet): "
+    ap=$ANSWER
+    for ip in "$@"; do
+        if [ "$ip" = "$ap" ]; then
+            apnode=$ip
+        else
+            front="$front $ip"
+        fi
+    done
+    for ip in $front; do
+        reboot_node "$ip"
+        region_verify "$ip"
+    done
+    if [ -n "$apnode" ]; then
+        echo
+        print "$C_WARN" "   rebooting your AP node $apnode last; the laptop loses the fleet while it is down"
+        reboot_node "$apnode"
+        region_verify "$apnode"
+    fi
+    return 0
+}
+
+region_menu() {
+    pick_target
+    local cc ips ip reg hal freq newplan oldplan plan_changed=0
+    ask "   regulatory domain, 2-letter code (US, RO, DE, GB, ...): "
+    cc=${ANSWER^^}
+    if ! [[ $cc =~ ^[A-Z]{2}$ ]]; then
+        echo "   need a two-letter country code"
+        return 0
+    fi
+    ips=$TARGET
+    [ -n "$ips" ] || ips=$(fleet_ips | tr '\n' ' ')
+    newplan=$(region_plan "$cc")
+
+    echo
+    echo "   current -> $cc (HaLow plan $newplan):"
+    for ip in $ips; do
+        region_state "$ip"
+        read -r reg hal freq <<<"$R_STATE"
+        printf '     %-15s %-8s (HaLow %-4s, %s kHz)\n' "$ip" "$reg" "$hal" "$freq"
+        oldplan=$(region_plan "$hal")
+        [ "$newplan" != "$oldplan" ] && plan_changed=1
+    done
+
+    if [ "$plan_changed" -eq 1 ]; then
+        echo
+        print "$C_WARN" "   WARNING: HaLow plan changes channel (US 907 MHz / EU 863.5 MHz)."
+        print "$C_WARN" "   Nodes on different plans cannot HaLow-mesh each other."
+        print "$C_WARN" "   Switch every fleet node, or HaLow splits (2.4 GHz stays up)."
+    fi
+    echo
+    ask "   write the new region config to these node(s)? [y/N]: "
+    case $ANSWER in
+    y | Y) ;;
+    *) echo "   cancelled; nothing applied"; return 0 ;;
+    esac
+
+    local out line
+    for ip in $ips; do
+        echo
+        echo "   $ip:"
+        out=$(node_root_script "$ip" "$REPO_ROOT/scripts/remote/region-apply.sh" "$cc" 2>&1)
+        while IFS= read -r line; do
+            echo "     $line"
+        done <<<"$out"
+    done
+
+    echo
+    print "$C_OK" "   config written; the new plan is inert until each node reboots."
+    ask "   reboot now (one at a time, your AP node last)? [y/N]: "
+    case $ANSWER in
+    y | Y) region_reboot $ips ;;
+    *) echo "   deferred; reboot when ready (or run region again and confirm)." ;;
+    esac
+    return 0
+}
+
 # One menu line: cyan number, plain name, dim description.
 menu_item() {  # $1 num $2 name $3 desc
     printf '    %s%s.%s  %-13s %s%s%s\n' \
@@ -631,6 +738,7 @@ menu() {
         menu_item 6 "auto-update"  "set auto_update y|n"
         menu_item 7 "mic standard" "set OpenVLM mic capture to ${MIC_STD} (91%)"
         menu_item 8 "node scan"    "find fleet nodes on this machine's network"
+        menu_item 9 "region"       "regulatory domain + HaLow plan; reboots to apply"
         menu_item q "quit"         ""
         ask "    > "
         case $ANSWER in
@@ -653,6 +761,7 @@ menu() {
             ;;
         7) pick_target; run_script set-mic-gain.sh ;;
         8) scan_menu ;;
+        9) region_menu ;;
         q) return 0 ;;
         *) echo "   unknown choice" ;;
         esac

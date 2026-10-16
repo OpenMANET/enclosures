@@ -157,6 +157,12 @@ The brcmfmac blacklist and the ALSA mic level survive updates.
   Two different boards failed on the same cable before the swap proved it. When
   a node's HaLow dies this way, swap in a known-good cable first (fixed both
   nodes) before suspecting the board.
+- **c370 intermittently drops for seconds, then recovers (hypothesis).** It is
+  the only node running HaLow + GPS together, and both share one carrier-board
+  USB port through an *unpowered* hub. Suspected cause: the Waveshare CM4
+  carrier board can't hold 5 V for both under load, so the USB port brown-outs
+  and the node briefly loses the radios (and sometimes SSH). Untested; a
+  powered hub or splitting the two devices across ports is the fix to try.
 
 ---
 
