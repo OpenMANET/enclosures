@@ -8,6 +8,10 @@
 # meshed on bat0, MT7916 5 GHz EUD AP), batman neighbours, HaLow
 # frequency/peers/USB errors, voice, GPS, mic level.
 #
+# With no argument this is the base entry point for fleet ops: an
+# interactive menu that checks the fleet and calls the other fleet
+# scripts where needed. With IPs it checks just those, no menu.
+#
 # usage: scripts/fleet-status.sh [ip...]
 set -u
 source "$(dirname "$0")/lib.sh"
@@ -244,6 +248,20 @@ reboot_node() {
     return 0
 }
 
+# Read one line from the user; sets ANSWER. Prefers /dev/tty so prompts
+# stay interactive even when stdin is redirected. EOF means no user.
+ask() {  # $1 prompt text
+    local line
+    printf '%s' "$1"
+    { read -r line < /dev/tty; } 2>/dev/null || read -r line || {
+        echo
+        echo "no input available, aborting"
+        exit 1
+    }
+    ANSWER=$line
+    return 0
+}
+
 # Prompt for the problem at index i; sets CHOICE to r/s/R/k/q.
 prompt() {
     local i=$1
@@ -254,10 +272,9 @@ prompt() {
     mic) echo "     recommended fix: apply mic standard (${MIC_STD} = 91%)" ;;
     esac
     echo "     [r]un fix  [s]hell on node  [R]eboot node  [k]skip  [q]uit"
-    { read -r CHOICE < /dev/tty; } 2>/dev/null || read -r CHOICE || {
-        echo "no input available, aborting"
-        exit 1
-    }
+    ask "     > "
+    CHOICE=$ANSWER
+    return 0
 }
 
 interact() {
@@ -300,7 +317,7 @@ interact() {
     return 0
 }
 
-main() {
+check_fleet() {
     local ip start n i
     for ip in $(fleet_ips "$@"); do
         start=${#P_IP[@]}
@@ -319,4 +336,80 @@ main() {
     return 0
 }
 
-main "$@"
+# Base entry point. No argument: interactive menu. Arguments: check just
+# those nodes, no menu.
+TARGET="" ANSWER=""
+
+# Ask which node(s) the next action applies to; blank = all.
+pick_target() {
+    ask "   target: enter/all for every node, or one IP from 'nodes': "
+    case $ANSWER in
+    '' | a | all) TARGET="" ;;
+    *)
+        if grep -qxF "$ANSWER" "$NODES_FILE"; then
+            TARGET=$ANSWER
+        else
+            echo "   $ANSWER not in 'nodes'; targeting all"
+            TARGET=""
+        fi
+        ;;
+    esac
+    return 0
+}
+
+# Run one of the fleet scripts against TARGET (blank = every node).
+run_script() {  # $1 script under scripts/, $2... args that precede the IPs
+    local s=$1 ips
+    shift
+    ips=$TARGET
+    if [ -z "$ips" ]; then
+        ips=$(fleet_ips | tr '\n' ' ')
+    fi
+    "$REPO_ROOT/scripts/$s" "$@" $ips
+    return 0
+}
+
+menu() {
+    while :; do
+        echo
+        echo "MANET lab fleet - $(fleet_ips | wc -l) nodes"
+        echo "   [s]tatus         full check, prompt per problem"
+        echo "   [u]pdate         upstream node-update.sh, one node at a time"
+        echo "   [v]oice patch    deploy patched mesh-voice.py (PR #8)"
+        echo "   [w]eb UI fix     deploy blank-VOICE-tab fix"
+        echo "   [r]adio policy   blacklist brcmfmac + radio-setup (reboots)"
+        echo "   [a]uto-update    set auto_update y|n"
+        echo "   [m]ic standard   set OpenVLM mic capture to ${MIC_STD} (91%)"
+        echo "   [q]uit"
+        ask "   > "
+        case $ANSWER in
+        s) check_fleet ;;
+        u) pick_target; run_script update-node.sh ;;
+        v) pick_target; run_script deploy-mesh-voice.sh ;;
+        w) pick_target; run_script deploy-voice-tab-fix.sh ;;
+        r)
+            pick_target
+            echo "   reboots each target; do not target the node whose AP you are on"
+            run_script apply-radio-policy.sh
+            ;;
+        a)
+            pick_target
+            ask "   auto_update y|n: "
+            case $ANSWER in
+            y | n) run_script set-auto-update.sh "$ANSWER" ;;
+            *) echo "   need y or n" ;;
+            esac
+            ;;
+        m) pick_target; run_script set-mic-gain.sh ;;
+        q) return 0 ;;
+        *) echo "   unknown choice" ;;
+        esac
+        ask "   press enter to return to the menu: "
+    done
+}
+
+if [ $# -gt 0 ]; then
+    check_fleet "$@"
+else
+    menu
+fi
