@@ -26,6 +26,12 @@ REBOOT_WAIT_SEC=300
 HARMLESS_FAILED=systemd-udev-settle.service
 REMOTE="$REPO_ROOT/scripts/remote/fleet-status.sh"
 
+# Band swapper: batman's per-hardif hop_penalty biases which band carries
+# each hop. 0 = pure link quality; >0 = sticky (prefer 2.4 GHz). Runtime
+# only - a reboot resets every hardif to 0.
+STICKY_PENALTY=1     # hop_penalty applied to the HaLow hardif in sticky mode
+TEST_HOLD_SEC=25     # how long the test holds 2.4 GHz down
+
 # Problem list: parallel arrays, index i -> ip, label, kind, arg, desc.
 # kind is an enum: svc (restart a service), mic (apply the mic standard),
 # none (no automatic fix: shell/reboot/skip).
@@ -717,6 +723,203 @@ region_menu() {
     return 0
 }
 
+# --- band swapper: 2.4 GHz vs HaLow path priority -------------------------
+
+# band_mode_name <penalty> -> "link quality" or "sticky (N)"
+band_mode_name() {
+    if [ "$1" = "0" ] || [ -z "$1" ]; then
+        echo "link quality"
+    else
+        echo "sticky ($1)"
+    fi
+    return 0
+}
+
+# load_band <ip> -> sets BH_IF BH_MAC BM_IF BM_TX BP_H BP_M ("" on failure)
+load_band() {
+    local info
+    info=$(node_root_script "$1" "$REPO_ROOT/scripts/remote/band-info.sh" 2>/dev/null)
+    BH_IF=$(printf '%s\n' "$info" | sed -n 's/^halow_if=//p')
+    BH_MAC=$(printf '%s\n' "$info" | sed -n 's/^halow_mac=//p')
+    BM_IF=$(printf '%s\n' "$info" | sed -n 's/^mesh24_if=//p')
+    BM_TX=$(printf '%s\n' "$info" | sed -n 's/^tx_dbm=//p')
+    BP_H=$(printf '%s\n' "$info" | sed -n 's/^pen_halow=//p')
+    BP_M=$(printf '%s\n' "$info" | sed -n 's/^pen_mesh24=//p')
+    return 0
+}
+
+# route_to <observer_ip> <originator_mac> -> iface of the best route (wlan0/wlan2)
+route_to() {
+    printf '%s\n' "$SUDO_PASS" \
+        | node_ssh "$1" "sudo -S -p '' batctl meshif bat0 originators 2>/dev/null" 2>/dev/null \
+        | awk -v m="$2" 'index($0, m) && /^ \*/ {print; exit}' \
+        | grep -oE 'wlan[0-9]+' | head -1
+    return 0
+}
+
+# band_list_ips -> prints the target IPs (honours TARGET).
+band_list_ips() {
+    if [ -n "$TARGET" ]; then
+        printf '%s\n' "$TARGET"
+    else
+        fleet_ips
+    fi
+    return 0
+}
+
+band_set_mode() {  # $1 penalty
+    local pen=$1 ips ip out
+    pick_target
+    ips=""
+    while IFS= read -r ip; do
+        [ -n "$ip" ] && ips="$ips $ip"
+    done < <(band_list_ips)
+    echo
+    echo "   setting $(band_mode_name "$pen") on:"
+    for ip in $ips; do
+        out=$(node_root_script "$ip" "$REPO_ROOT/scripts/remote/band-set.sh" "$pen" 2>&1)
+        print "$C_OK" "     $ip: $out"
+    done
+    print "$C_WARN" "   runtime only - a reboot resets every node to link quality (0)"
+    return 0
+}
+
+band_show() {
+    local ip
+    echo
+    for ip in $(band_list_ips); do
+        load_band "$ip"
+        if [ -z "$BH_IF" ]; then
+            print "$C_BAD" "   $ip: (no HaLow/2.4 GHz mesh ifaces, or unreachable)"
+            continue
+        fi
+        printf '   %-15s mode=%-13s haLow=%s 2.4G=%s tx=%s dBm\n' \
+            "$ip" "$(band_mode_name "$BP_H")" "$BH_IF" "$BM_IF" "${BM_TX:-?}"
+    done
+    return 0
+}
+
+band_pick_test_node() {  # sets TEST_NODE; "" on cancel
+    local first
+    first=$(fleet_ips | head -1)
+    ask "   node to degrade (IP, 'r' for random, Enter for first [$first]): "
+    case $ANSWER in
+    '') TEST_NODE=$first ;;
+    r | R) TEST_NODE=$(fleet_ips | shuf -n1) ;;
+    *)
+        if grep -qxF "$ANSWER" "$NODES_FILE"; then
+            TEST_NODE=$ANSWER
+        else
+            echo "   $ANSWER not in 'nodes'; using first ($first)"
+            TEST_NODE=$first
+        fi
+        ;;
+    esac
+    return 0
+}
+
+band_test() {
+    local test_ip others mac iface i b a changed=0
+    local -A base=()
+    band_pick_test_node
+    [ -n "$TEST_NODE" ] || return 0
+    load_band "$TEST_NODE"
+    if [ -z "$BH_MAC" ]; then
+        print "$C_BAD" "   $TEST_NODE: no band info (unreachable?)"
+        return 0
+    fi
+    mac=$BH_MAC
+    others=""
+    while IFS= read -r i; do
+        [ -n "$i" ] && [ "$i" != "$TEST_NODE" ] && others="$others $i"
+    done < <(band_list_ips)
+    if [ -z "$others" ]; then
+        echo "   need at least one other node to observe the handoff from"
+        return 0
+    fi
+
+    echo
+    echo "   $TEST_NODE: mode=$(band_mode_name "$BP_H")  haLow=$BH_IF  2.4G=$BM_IF"
+    echo "   how the other nodes reach $TEST_NODE (best route):"
+    for i in $others; do
+        base[$i]=$(route_to "$i" "$mac")
+        printf '     %-15s %s\n' "$i" "${base[$i]:-none}"
+    done
+
+    echo
+    print "$C_WARN" "   taking $TEST_NODE 2.4 GHz down for ${TEST_HOLD_SEC}s (it stays meshed via HaLow) ..."
+    node_root_script "$TEST_NODE" "$REPO_ROOT/scripts/remote/band-degrade.sh" \
+        "$TEST_HOLD_SEC" >/dev/null &
+    local bpid=$!
+    sleep 12
+    echo "   ... while 2.4 GHz is down:"
+    for i in $others; do
+        a=$(route_to "$i" "$mac")
+        if [ -n "$a" ] && [ "$a" != "${base[$i]:-}" ]; then
+            changed=1
+            printf '     %-15s %s -> %s\n' "$i" "${base[$i]:-none}" "$a"
+        else
+            printf '     %-15s %s (unchanged)\n' "$i" "${a:-none}"
+        fi
+    done
+    wait "$bpid" 2>/dev/null
+    sleep 12
+    echo "   ... after restore:"
+    for i in $others; do
+        a=$(route_to "$i" "$mac")
+        printf '     %-15s %s\n' "$i" "${a:-none}"
+    done
+    echo
+    if [ "$changed" -eq 1 ]; then
+        print "$C_OK" "   handoff seen: routes to $TEST_NODE moved to HaLow while 2.4 GHz was down,"
+        print "$C_OK" "   then followed the restore. The mesh migrates bands as expected."
+    else
+        print "$C_BAD" "   no handoff seen. That is unexpected - check $TEST_NODE's HaLow"
+        print "$C_BAD" "   (is it meshed?) and whether the other nodes even see it over HaLow."
+    fi
+    return 0
+}
+
+band_swapper() {
+    local ch
+    while :; do
+        echo
+        print "$C_DIM" "----------------------------------------------------------------"
+        print "$C_HEAD" "  band swapper - 2.4 GHz vs HaLow path priority"
+        print "$C_DIM" "----------------------------------------------------------------"
+        cat <<'EOF'
+   batman-adv already routes each hop over its best band by measured link
+   quality: close nodes ride 2.4 GHz (fast); as they drift apart, 2.4 GHz
+   fades and the route migrates to sub-1 GHz HaLow (long range). This only
+   tunes HOW eager that migration is, and lets you test it. It is a runtime
+   setting: a reboot resets every node to link quality.
+
+     l. set LINK-QUALITY mode   hop_penalty HaLow=0. Switch to HaLow the
+                                instant 2.4 GHz measures worse. Fastest
+                                handoff; can flap when both bands are close.
+     s. set STICKY mode         hop_penalty HaLow=N. Hold 2.4 GHz until HaLow
+                                is clearly better. Less flapping for mobile
+                                nodes; handoff a little later. (N tunable.)
+     t. TEST the handoff        briefly take one node's 2.4 GHz radio down to
+                                fake it going out of range; watch the others'
+                                routes move to HaLow, then it restores itself.
+     d. SHOW current mode       per-node penalty + best band, no changes.
+     q. back
+
+EOF
+        ask "   > "
+        case $ANSWER in
+        l | L) band_set_mode 0 ;;
+        s | S) band_set_mode "$STICKY_PENALTY" ;;
+        t | T) band_test ;;
+        d | D) band_show ;;
+        q | Q | '') return 0 ;;
+        *) echo "   unknown choice" ;;
+        esac
+    done
+    return 0
+}
+
 # One menu line: cyan number, plain name, dim description.
 menu_item() {  # $1 num $2 name $3 desc
     printf '    %s%s.%s  %-13s %s%s%s\n' \
@@ -739,6 +942,7 @@ menu() {
         menu_item 7 "mic standard" "set OpenVLM mic capture to ${MIC_STD} (91%)"
         menu_item 8 "node scan"    "find fleet nodes on this machine's network"
         menu_item 9 "region"       "regulatory domain + HaLow plan; reboots to apply"
+        menu_item 10 "band swapper" "prefer 2.4G near / HaLow far; mode + handoff test"
         menu_item q "quit"         ""
         ask "    > "
         case $ANSWER in
@@ -762,6 +966,7 @@ menu() {
         7) pick_target; run_script set-mic-gain.sh ;;
         8) scan_menu ;;
         9) region_menu ;;
+        10) band_swapper ;;
         q) return 0 ;;
         *) echo "   unknown choice" ;;
         esac
