@@ -336,6 +336,162 @@ check_fleet() {
     return 0
 }
 
+# --- node discovery ------------------------------------------------------
+# The user may not know the fleet IPs (laptop on some node's AP or on a
+# node's ethernet port). Scan the local /24 for live nodes.
+
+# Ping every host of a /24, print the ones that answer. Wireless drops
+# some replies under burst load, so two passes at modest parallelism.
+ping_sweep() {  # $1 CIDR (or network prefix), $2 max parallel
+    local subnet=$1 pass ip
+    case $subnet in
+    *.*) subnet="$subnet/24" ;;
+    esac
+    subnet=${subnet%/*}
+    local a b c
+    IFS='.' read -r a b c _ <<<"$subnet"
+    for pass in 1 2; do
+        for ip in $(seq 1 254); do
+            printf '%s.%s.%s.%s\n' "$a" "$b" "$c" "$ip"
+        done | xargs -n1 -P "$2" \
+            sh -c 'ping -q -c1 -W1 "$1" >/dev/null 2>&1 && echo "$1"' _
+    done | sort -u
+    return 0
+}
+
+# One candidate: IP <TAB> state <TAB> hostname <TAB> version.
+# state: ok (key auth, MANET) | pass (password auth, MANET) | other.
+# stdin is closed: ssh would otherwise eat the caller's input.
+probe_host() {  # $1 ip
+    local ip=$1
+    if node_ssh "$ip" true </dev/null 2>/dev/null; then
+        probe_with_key "$ip"
+        return 0
+    fi
+    # Fresh nodes keep the radio password (the old default is SUDO_PASS).
+    if printf '%s\n' "$SUDO_PASS" | ssh "${SSH_OPTS[@]}" \
+            -o PubkeyAuthentication=no -o PreferredAuthentications=password \
+            -o NumberOfPasswordPrompts=1 \
+            "$SSH_USER@$ip" true 2>/dev/null; then
+        probe_with_password "$ip"
+        return 0
+    fi
+    printf '%s\t%s\n' "$ip" other
+    return 0
+}
+
+probe_with_key() {  # $1 ip
+    local id
+    id=$(node_ssh "$1" 'hostname; head -1 /etc/manet_version.txt 2>/dev/null' \
+        </dev/null 2>/dev/null)
+    if [ -n "${id##*$'\n'}" ]; then
+        printf '%s\t%s\t%s\t%s\n' "$1" ok "${id%%$'\n'*}" "${id##*$'\n'}"
+    else
+        printf '%s\t%s\t%s\n' "$1" other "${id%%$'\n'*}"
+    fi
+    return 0
+}
+
+probe_with_password() {  # $1 ip
+    local id
+    id=$(printf '%s\n' "$SUDO_PASS" | ssh "${SSH_OPTS[@]}" \
+        -o PubkeyAuthentication=no -o PreferredAuthentications=password \
+        -o NumberOfPasswordPrompts=1 \
+        "$SSH_USER@$1" 'hostname; head -1 /etc/manet_version.txt 2>/dev/null' 2>/dev/null)
+    if [ -n "${id##*$'\n'}" ]; then
+        printf '%s\t%s\t%s\t%s\n' "$1" pass "${id%%$'\n'*}" "${id##*$'\n'}"
+    else
+        printf '%s\t%s\t%s\n' "$1" other "${id%%$'\n'*}"
+    fi
+    return 0
+}
+
+# Authorize the fleet key for the radio user (radio password is SUDO_PASS).
+copy_key() {  # $1 ip
+    printf '%s\n' "$SUDO_PASS" | ssh-copy-id -i "$SSH_KEY" "$SSH_USER@$1"
+    return 0
+}
+
+scan_menu() {
+    local locals guess cidr ip ips probed ip_ state host ver known
+    # Every local IPv4 network, one per line, for the prompt's default.
+    locals=$(ip -4 -o addr show 2>/dev/null | awk '/ scope global /{
+        split($4, a, "/"); split(a[1], o, ".")
+        print o[1] "." o[2] "." o[3] ".0/" a[2]}' | awk '!seen[$0]++')
+    guess=$(head -1 <<<"$locals")
+    ask "   subnet to scan [${guess:-192.168.0.0/24}]${locals:+ (${locals//$'\n'/, })}: "
+    cidr=$ANSWER
+    [ -n "$cidr" ] || cidr=$guess
+    echo "   scanning $cidr ..."
+    ips=$(ping_sweep "$cidr" 16)
+    if [ -z "$ips" ]; then
+        echo "   no live hosts found"
+        return 0
+    fi
+
+    local iparr=() known_hosts="" line
+    mapfile -t iparr <<<"$ips"
+    probed=""
+    for ip in "${iparr[@]}"; do
+        line=$(probe_host "$ip")
+        # A node holds a second address (EUD DHCP): mark duplicates.
+        case $(cut -f2 <<<"$line") in
+        ok | pass)
+            host=$(cut -f3 <<<"$line")
+            case " $known_hosts " in
+            *" $host "*) line="$ip	dup	$host	$(cut -f4 <<<"$line")" ;;
+            *) known_hosts="$known_hosts $host" ;;
+            esac
+            ;;
+        esac
+        probed="$probed$line"$'\n'
+    done
+
+    echo
+    echo "   found:"
+    local prow=() pline
+    mapfile -t prow <<<"$probed"
+    for pline in "${prow[@]}"; do
+        IFS=$'\t' read -r ip_ state host ver <<<"$pline"
+        [ -n "$ip_" ] || continue
+        known=""
+        grep -qxF "$ip_" "$NODES_FILE" && known=" (already in nodes)"
+        echo "   $ip_  $host  ${ver:-no-manet-version}$known"
+        if [ "$state" = "pass" ]; then
+            echo "       radio password accepted but the fleet key is not authorized"
+        elif [ "$state" = "other" ]; then
+            echo "       answers ssh but is not a MANET node"
+        elif [ "$state" = "dup" ]; then
+            echo "       second address of the same host; not added"
+        fi
+    done
+
+    mapfile -t prow <<<"$probed"
+    for pline in "${prow[@]}"; do
+        IFS=$'\t' read -r ip_ state host ver <<<"$pline"
+        [ -n "$ip_" ] || continue
+        grep -qxF "$ip_" "$NODES_FILE" && continue
+        [ "$state" = "other" ] && continue
+        [ "$state" = "dup" ] && continue
+        echo
+        echo "   $ip_ ($host)"
+        if [ "$state" = "pass" ]; then
+            ask "   authorize the fleet key? [y/N]: "
+            case $ANSWER in
+            y | Y) copy_key "$ip_" || echo "   ssh-copy-id failed" ;;
+            esac
+        fi
+        ask "   add to 'nodes'? [y/N]: "
+        case $ANSWER in
+        y | Y) printf '%s\n' "$ip_" >> "$NODES_FILE"; echo "   added $ip_" ;;
+        esac
+    done
+    echo
+    echo "   'nodes' now:"
+    grep -E '^[0-9.]+$' "$NODES_FILE" || echo "   (empty)"
+    return 0
+}
+
 # Base entry point. No argument: interactive menu. Arguments: check just
 # those nodes, no menu.
 TARGET="" ANSWER=""
@@ -373,26 +529,27 @@ menu() {
     while :; do
         echo
         echo "MANET lab fleet - $(fleet_ips | wc -l) nodes"
-        echo "   [s]tatus         full check, prompt per problem"
-        echo "   [u]pdate         upstream node-update.sh, one node at a time"
-        echo "   [v]oice patch    deploy patched mesh-voice.py (PR #8)"
-        echo "   [w]eb UI fix     deploy blank-VOICE-tab fix"
-        echo "   [r]adio policy   blacklist brcmfmac + radio-setup (reboots)"
-        echo "   [a]uto-update    set auto_update y|n"
-        echo "   [m]ic standard   set OpenVLM mic capture to ${MIC_STD} (91%)"
-        echo "   [q]uit"
+        echo "    1. status         full check, prompt per problem"
+        echo "    2. update         upstream node-update.sh, one node at a time"
+        echo "    3. voice patch    deploy patched mesh-voice.py (PR #8)"
+        echo "    4. web UI fix     deploy blank-VOICE-tab fix"
+        echo "    5. radio policy   blacklist brcmfmac + radio-setup (reboots)"
+        echo "    6. auto-update    set auto_update y|n"
+        echo "    7. mic standard   set OpenVLM mic capture to ${MIC_STD} (91%)"
+        echo "    8. node scan      find fleet nodes on this machine's network"
+        echo "    q. quit"
         ask "   > "
         case $ANSWER in
-        s) check_fleet ;;
-        u) pick_target; run_script update-node.sh ;;
-        v) pick_target; run_script deploy-mesh-voice.sh ;;
-        w) pick_target; run_script deploy-voice-tab-fix.sh ;;
-        r)
+        1) check_fleet ;;
+        2) pick_target; run_script update-node.sh ;;
+        3) pick_target; run_script deploy-mesh-voice.sh ;;
+        4) pick_target; run_script deploy-voice-tab-fix.sh ;;
+        5)
             pick_target
             echo "   reboots each target; do not target the node whose AP you are on"
             run_script apply-radio-policy.sh
             ;;
-        a)
+        6)
             pick_target
             ask "   auto_update y|n: "
             case $ANSWER in
@@ -400,7 +557,8 @@ menu() {
             *) echo "   need y or n" ;;
             esac
             ;;
-        m) pick_target; run_script set-mic-gain.sh ;;
+        7) pick_target; run_script set-mic-gain.sh ;;
+        8) scan_menu ;;
         q) return 0 ;;
         *) echo "   unknown choice" ;;
         esac
