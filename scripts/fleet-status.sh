@@ -29,18 +29,30 @@ REMOTE="$REPO_ROOT/scripts/remote/fleet-status.sh"
 # Problem list: parallel arrays, index i -> ip, label, kind, arg, desc.
 # kind is an enum: svc (restart a service), mic (apply the mic standard),
 # none (no automatic fix: shell/reboot/skip).
-P_IP=() P_LBL=() P_KIND=() P_ARG=() P_DESC=()
+# cat is an enum: sig (yellow), oth (orange), off (red).
+P_IP=() P_LBL=() P_KIND=() P_ARG=() P_DESC=() P_CAT=()
 
 # Per-node facts, filled by collect(); count mode is used by recheck().
 C_ip="" C_host="" C_unreachable=0 C_count=0 C_count_mode=0
 
 # Append a problem, or just count it while rechecking.
-add_problem() {
+add_problem() {  # $1 kind $2 arg $3 desc $4 cat
     if [ "$C_count_mode" -eq 1 ]; then
         C_count=$((C_count + 1))
         return 0
     fi
-    P_IP+=("$C_ip") P_LBL+=("$C_host") P_KIND+=("$1") P_ARG+=("$2") P_DESC+=("$3")
+    P_IP+=("$C_ip") P_LBL+=("$C_host") P_KIND+=("$1") P_ARG+=("$2") \
+        P_DESC+=("$3") P_CAT+=("${4:-oth}")
+    return 0
+}
+
+# Sets C_PROB to the color for a problem category.
+prob_color() {  # $1 cat
+    case $1 in
+    sig) C_PROB=$C_WARN ;;
+    off) C_PROB=$C_BAD ;;
+    *) C_PROB=$C_ORG ;;
+    esac
     return 0
 }
 
@@ -77,7 +89,7 @@ collect() {
     if ! out=$(node_root_script "$C_ip" "$REMOTE" 2>/dev/null); then
         C_host=$C_ip
         C_unreachable=1
-        add_problem none unreachable "node unreachable (power? cable?)"
+        add_problem none unreachable "node unreachable (power? cable?)" off
         return 0
     fi
 
@@ -93,12 +105,12 @@ collect() {
             ;;
         SVC)
             if [ "${f[1]#*=}" != "active" ]; then
-                add_problem svc "${f[1]%%=*}" "service ${f[1]%%=*} not active"
+                add_problem svc "${f[1]%%=*}" "service ${f[1]%%=*} not active" oth
             fi
             ;;
         IF)
             if [ "${f[1]}" = "missing" ]; then
-                add_problem none if-missing "interface ${f[1]} missing"
+                add_problem none if-missing "interface ${f[1]} missing" oth
             else
                 raw="${f[2]#drv=}|${f[3]#type=}|${f[4]#ch=}|${f[5]#ssid=}|${f[6]#in_bat0=}"
                 case ${f[1]} in
@@ -113,7 +125,7 @@ collect() {
         BAT) C_n24=${f[1]#n24=} C_nhalo=${f[2]#nhalow=} ;;
         VOICE)
             if [ "${f[1]}" = "missing" ]; then
-                add_problem svc mesh-voice "voice state file missing"
+                add_problem svc mesh-voice "voice state file missing" oth
             else
                 C_vptt=${f[1]#ptt=} C_vblocked=${f[2]#blocked=}
             fi
@@ -138,11 +150,11 @@ collect() {
     # Radio role policy: MT7916 2.4 GHz + MM8108 HaLow meshed on bat0,
     # MT7916 5 GHz as the EUD AP.
     radio_ok "$C_w0" mt7915e mesh \
-        || add_problem none if-wlan0 "wlan0 not MT7916 2.4 GHz mesh (want drv=mt7915e type=mesh in_bat0=1)"
+        || add_problem none if-wlan0 "wlan0 not MT7916 2.4 GHz mesh (want drv=mt7915e type=mesh in_bat0=1)" oth
 
     local suffix=${C_host#mesh-}
     if [ "$suffix" = "$C_host" ]; then
-        add_problem none hostname "hostname $C_host is not mesh-<id>"
+        add_problem none hostname "hostname $C_host is not mesh-<id>" oth
         suffix=""
     fi
     # The AP must not be on bat0, so this is checked by hand, not via
@@ -152,31 +164,36 @@ collect() {
     if [ "$d1" != "mt7915e" ] || [ "$t1" != "ap" ] || [ "$b1" != "0" ] \
         || [ "$C_ap_if" != "wlan1" ] \
         || { [ -n "$suffix" ] && [ "$ssid" != "$AP_PREFIX-$suffix" ]; }; then
-        add_problem none if-wlan1 "wlan1 not MT7916 5 GHz EUD AP (want drv=mt7915e type=ap off-bat0 ap_if=wlan1 ssid=$AP_PREFIX-$suffix)"
+        add_problem none if-wlan1 "wlan1 not MT7916 5 GHz EUD AP (want drv=mt7915e type=ap off-bat0 ap_if=wlan1 ssid=$AP_PREFIX-$suffix)" oth
     fi
 
     radio_ok "$C_w2" morse_usb mesh \
-        || add_problem none if-wlan2 "wlan2 not MM8108 HaLow mesh (want drv=morse_usb type=mesh in_bat0=1)"
+        || add_problem none if-wlan2 "wlan2 not MM8108 HaLow mesh (want drv=morse_usb type=mesh in_bat0=1)" oth
 
-    [ "$C_freq" = "$HALOW_KHZ" ] || add_problem none halow-freq "HaLow ${C_freq} kHz, want ${HALOW_KHZ}"
-    [ "$C_peers" -ge 1 ] || add_problem none halow-peers "no HaLow peers established"
-    [ "$C_usb" -eq 0 ] || add_problem none halow-usb "$C_usb HaLow USB errors in the last 5 min"
-    [ "$C_n24" -ge 1 ] || add_problem none mesh24 "no batman neighbours on 2.4 GHz"
-    [ "$C_nhalo" -ge 1 ] || add_problem none mesh1g "no batman neighbours on HaLow"
-    [ -z "$C_failed" ] || add_problem none failed-units "failed units:$C_failed"
+    [ "$C_freq" = "$HALOW_KHZ" ] || add_problem none halow-freq "HaLow ${C_freq} kHz, want ${HALOW_KHZ}" sig
+    [ "$C_peers" -ge 1 ] || add_problem none halow-peers "no HaLow peers established" sig
+    [ "$C_usb" -eq 0 ] || add_problem none halow-usb "$C_usb HaLow USB errors in the last 5 min" sig
+    [ "$C_n24" -ge 1 ] || add_problem none mesh24 "no batman neighbours on 2.4 GHz" sig
+    [ "$C_nhalo" -ge 1 ] || add_problem none mesh1g "no batman neighbours on HaLow" sig
+    [ -z "$C_failed" ] || add_problem none failed-units "failed units:$C_failed" oth
 
     if [ -n "$C_vptt" ]; then
         if [ "$C_vptt" != "true" ] || [ "$C_vblocked" != "false" ]; then
-            add_problem svc mesh-voice "voice: ptt=$C_vptt blocked=$C_vblocked"
+            add_problem svc mesh-voice "voice: ptt=$C_vptt blocked=$C_vblocked" oth
         fi
     fi
 
-    if [ "$C_gps" = "present" ] && [ "$C_gps_active" != "active" ]; then
-        add_problem svc gpsd "gpsd not active"
+    if [ "$C_gps" = "present" ]; then
+        if [ "$C_gps_active" != "active" ]; then
+            add_problem svc gpsd "gpsd not active" oth
+        fi
+        if [ "$C_gps_fix" != "true" ]; then
+            add_problem none gps-nofix "GPS present, no fix (indoor?)" sig
+        fi
     fi
 
     if [ "$C_mic" != "none" ] && [ "$C_mic" != "$MIC_STD" ]; then
-        add_problem mic "$MIC_STD" "mic capture $C_mic, standard is $MIC_STD (91%)"
+        add_problem mic "$MIC_STD" "mic capture $C_mic, standard is $MIC_STD (91%)" oth
     fi
     return 0
 }
@@ -201,39 +218,55 @@ show_node() {
         return 0
     fi
 
-    local halow halow_ok=1 gps mic voice tag
+    local halow gps mic voice
     if [ "$C_freq" = "$HALOW_KHZ" ] && [ "$C_peers" -ge 1 ]; then
         halow="$C_OK up: ${C_freq} kHz, ${C_peers} peers"
     else
-        halow_ok=0
-        halow="$C_BAD down: ${C_freq} kHz, ${C_peers} peers"
+        halow="$C_WARN down: ${C_freq} kHz, ${C_peers} peers"
     fi
-    if [ "$C_gps" = "present" ]; then
-        if [ "$C_gps_fix" = "true" ]; then
-            gps="$C_OK up, fix"
-        else
-            gps="$C_WARN up, no fix (indoor?)"
-        fi
-    else
+    if [ "$C_gps" != "present" ]; then
         gps="$C_DIM none"
+    elif [ "$C_gps_active" != "active" ]; then
+        gps="$C_ORG gpsd down"
+    elif [ "$C_gps_fix" = "true" ]; then
+        gps="$C_OK up, fix"
+    else
+        gps="$C_WARN up, no fix (indoor?)"
     fi
     if [ "$C_mic" = "$MIC_STD" ]; then
         mic="$C_OK $C_mic"
     elif [ "$C_mic" = "none" ]; then
-        mic="$C_WARN none (board out)"
+        mic="$C_DIM none (board out)"
     else
-        mic="$C_BAD $C_mic (want $MIC_STD)"
+        mic="$C_ORG $C_mic (want $MIC_STD)"
     fi
     if [ "$C_vptt" = "true" ] && [ "$C_vblocked" = "false" ]; then
         voice="$C_OK ok"
     else
-        voice="$C_BAD ptt $C_vptt, blocked $C_vblocked"
+        voice="$C_ORG ptt $C_vptt, blocked $C_vblocked"
     fi
-    if [ "$nprob" -gt 0 ]; then
-        tag="$C_BAD[$nprob problem(s)]"
-    else
-        tag="$C_OK[ok]"
-    fi
+
+    # Header tag: worst category among this node's problems
+    # (0 ok < 1 signal < 2 other < 3 offline).
+    local worst=0 tag
+    for ((i = ${NODE_PROBLEMS_START:-0}; i < ${#P_IP[@]}; i++)); do
+        case ${P_CAT[$i]} in
+        sig) [ "$worst" -lt 1 ] && worst=1 ;;
+        oth) [ "$worst" -lt 2 ] && worst=2 ;;
+        off) worst=3; break ;;
+        esac
+    done
+    case $worst in
+    0) tag="$C_OK[ok]" ;;
+    1) tag="$C_WARN[$nprob signal problem(s)]" ;;
+    2) tag="$C_ORG[$nprob problem(s)]" ;;
+    3) tag="$C_BAD[unreachable]" ;;
+    esac
+
+    local m24=$C_n24 mhalo=$C_nhalo musb=$C_usb
+    [ "$C_n24" -eq 0 ] && m24="$C_WARN 0"
+    [ "$C_nhalo" -eq 0 ] && mhalo="$C_WARN 0"
+    [ "$C_usb" -gt 0 ] && musb="$C_WARN $C_usb"
 
     print "$C_HEAD" "  $C_host $C_DIM($C_ip)$C_RST $tag"
     print "" "      up $(fmt_up "$C_up_s")   ver $C_ver   auto_update $C_au"
@@ -241,14 +274,16 @@ show_node() {
     show_radio "2.4G" "$C_w0"
     show_radio "AP" "$C_w1"
     show_radio "HaLow" "$C_w2"
-    printf '      %-7s 2.4G %d nbrs  HaLow %d nbrs  usb_err5m %s\n' \
-        "mesh" "$C_n24" "$C_nhalo" "$C_usb"
-    [ "$halow_ok" -eq 0 ] && printf '      %-7s %b\n' "haLow" "$halow"
+    printf '      %-7s 2.4G %b nbrs  HaLow %b nbrs  usb_err5m %b\n' \
+        "mesh" "$m24" "$mhalo" "$musb"
+    printf '      %-7s %b\n' "haLow" "$halow"
     printf '      %-7s %b\n' "voice" "$voice"
-    printf '      %-7s %b   mic %b\n' "gps" "$gps" "$mic"
+    printf '      %-7s %b\n' "gps" "$gps"
+    printf '      %-7s %b\n' "mic" "$mic"
 
     for ((i = ${NODE_PROBLEMS_START:-0}; i < ${#P_IP[@]}; i++)); do
-        print "$C_BAD" "      ! ${P_DESC[$i]}"
+        prob_color "${P_CAT[$i]}"
+        print "$C_PROB" "      ! ${P_DESC[$i]}"
     done
     return 0
 }
@@ -286,11 +321,13 @@ reboot_node() {
 }
 
 # Colors: plain when output is not a terminal.
+# Green = ok, yellow = signal problem, orange = other problem,
+# red = offline/unreachable.
 if [ -t 1 ]; then
-    C_OK=$'\e[32m' C_BAD=$'\e[31m' C_WARN=$'\e[33m' C_HEAD=$'\e[1;36m'
-    C_DIM=$'\e[2m' C_RST=$'\e[0m'
+    C_OK=$'\e[32m' C_WARN=$'\e[33m' C_ORG=$'\e[38;5;208m' C_BAD=$'\e[31m'
+    C_HEAD=$'\e[1;36m' C_DIM=$'\e[2m' C_RST=$'\e[0m'
 else
-    C_OK="" C_BAD="" C_WARN="" C_HEAD="" C_DIM="" C_RST=""
+    C_OK="" C_WARN="" C_ORG="" C_BAD="" C_HEAD="" C_DIM="" C_RST=""
 fi
 
 # print <color> <text>
@@ -321,7 +358,8 @@ ask() {  # $1 prompt text
 prompt() {
     local i=$1
     echo
-    print "$C_BAD" "  [ $((i + 1))/${#P_IP[@]}] ${P_LBL[$i]} (${P_IP[$i]}): ${P_DESC[$i]}"
+    prob_color "${P_CAT[$i]}"
+    print "$C_PROB" "  [ $((i + 1))/${#P_IP[@]}] ${P_LBL[$i]} (${P_IP[$i]}): ${P_DESC[$i]}"
     case ${P_KIND[$i]} in
     svc) echo "     recommended fix: systemctl restart ${P_ARG[$i]}" ;;
     mic) echo "     recommended fix: apply mic standard (${MIC_STD} = 91%)" ;;
@@ -341,7 +379,7 @@ interact() {
     fi
 
     echo
-    print "$C_BAD" "  $total problem(s) found."
+    print "$C_ORG" "  $total problem(s) found."
     while [ "$i" -lt "$total" ]; do
         prompt "$i"
         case $CHOICE in
