@@ -272,7 +272,7 @@ show_node() {
     print "" "      up $(fmt_up "$C_up_s")   ver $C_ver   auto_update $C_au"
     print "$C_DIM" "      radios  (2.4G + HaLow mesh on bat0; 5G AP off-mesh)"
     show_radio "2.4G" "$C_w0"
-    show_radio "AP" "$C_w1"
+    show_radio "5G AP" "$C_w1"
     show_radio "HaLow" "$C_w2"
     printf '      %-7s 2.4G %b nbrs  HaLow %b nbrs  usb_err5m %b\n' \
         "mesh" "$m24" "$mhalo" "$musb"
@@ -610,20 +610,29 @@ run_script() {  # $1 script under scripts/, $2... args that precede the IPs
     return 0
 }
 
+# One menu line: cyan number, plain name, dim description.
+menu_item() {  # $1 num $2 name $3 desc
+    printf '    %s%s.%s  %-13s %s%s%s\n' \
+        "$C_HEAD" "$1" "$C_RST" "$2" "$C_DIM" "$3" "$C_RST"
+    return 0
+}
+
 menu() {
     while :; do
         echo
-        echo "MANET lab fleet - $(fleet_ips | wc -l) nodes"
-        echo "    1. status         full check, prompt per problem"
-        echo "    2. update         upstream node-update.sh, one node at a time"
-        echo "    3. voice patch    deploy patched mesh-voice.py (PR #8)"
-        echo "    4. web UI fix     deploy blank-VOICE-tab fix"
-        echo "    5. radio policy   blacklist brcmfmac + radio-setup (reboots)"
-        echo "    6. auto-update    set auto_update y|n"
-        echo "    7. mic standard   set OpenVLM mic capture to ${MIC_STD} (91%)"
-        echo "    8. node scan      find fleet nodes on this machine's network"
-        echo "    q. quit"
-        ask "   > "
+        print "$C_DIM" "----------------------------------------------------------------"
+        print "$C_HEAD" "  MANET lab fleet - $(fleet_ips | wc -l) nodes"
+        echo
+        menu_item 1 "status"       "full check, prompt per problem"
+        menu_item 2 "update"       "upstream node-update.sh, one node at a time"
+        menu_item 3 "voice patch"  "deploy patched mesh-voice.py (PR #8)"
+        menu_item 4 "web UI fix"   "deploy blank-VOICE-tab fix"
+        menu_item 5 "radio policy" "blacklist brcmfmac + radio-setup (reboots)"
+        menu_item 6 "auto-update"  "set auto_update y|n"
+        menu_item 7 "mic standard" "set OpenVLM mic capture to ${MIC_STD} (91%)"
+        menu_item 8 "node scan"    "find fleet nodes on this machine's network"
+        menu_item q "quit"         ""
+        ask "    > "
         case $ANSWER in
         1) check_fleet ;;
         2) pick_target; run_script update-node.sh ;;
