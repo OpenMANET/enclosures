@@ -100,6 +100,7 @@ All take optional node IPs; default is every node in `nodes`.
 | Script | Does | Changes nodes |
 |---|---|---|
 | `scripts/fleet-check.sh` | services, radio roles, HaLow, neighbours, voice | no |
+| `scripts/fleet-status.sh [ip...]` | interactive: full check, prompts per problem (fix / shell / reboot) | only what you choose |
 | `scripts/update-node.sh` | upstream `node-update.sh`, one node at a time, stops on failure | yes |
 | `scripts/deploy-mesh-voice.sh` | installs `fixes/mesh-voice-audio/mesh-voice.py`, idempotent | restarts voice |
 | `scripts/deploy-voice-tab-fix.sh` | runs `fixes/voice-tab/voice_webGUI_fix.sh`, idempotent | restarts web UI |
