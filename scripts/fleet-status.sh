@@ -735,16 +735,16 @@ band_mode_name() {
     return 0
 }
 
-# load_band <ip> -> sets BH_IF BH_MAC BM_IF BM_TX BP_H BP_M ("" on failure)
+# load_band <ip> -> sets BH_IF BH_MAC BM_IF BP_H BP_M BP_FILE ("" on failure)
 load_band() {
     local info
     info=$(node_root_script "$1" "$REPO_ROOT/scripts/remote/band-info.sh" 2>/dev/null)
     BH_IF=$(printf '%s\n' "$info" | sed -n 's/^halow_if=//p')
     BH_MAC=$(printf '%s\n' "$info" | sed -n 's/^halow_mac=//p')
     BM_IF=$(printf '%s\n' "$info" | sed -n 's/^mesh24_if=//p')
-    BM_TX=$(printf '%s\n' "$info" | sed -n 's/^tx_dbm=//p')
     BP_H=$(printf '%s\n' "$info" | sed -n 's/^pen_halow=//p')
     BP_M=$(printf '%s\n' "$info" | sed -n 's/^pen_mesh24=//p')
+    BP_FILE=$(printf '%s\n' "$info" | sed -n 's/^pen_file=//p')
     return 0
 }
 
@@ -775,12 +775,18 @@ band_set_mode() {  # $1 penalty
         [ -n "$ip" ] && ips="$ips $ip"
     done < <(band_list_ips)
     echo
-    echo "   setting $(band_mode_name "$pen") on:"
+    echo "   setting $(band_mode_name "$pen") (persisted across reboots) on:"
     for ip in $ips; do
-        out=$(node_root_script "$ip" "$REPO_ROOT/scripts/remote/band-set.sh" "$pen" 2>&1)
-        print "$C_OK" "     $ip: $out"
+        node_scp "$ip" /tmp \
+            "$REPO_ROOT/scripts/remote/band-apply.sh" \
+            "$REPO_ROOT/scripts/remote/band-priority.service" >/dev/null 2>&1
+        out=$(node_root_script "$ip" "$REPO_ROOT/scripts/remote/band-install.sh" "$pen" 2>&1)
+        if [ -n "$out" ]; then
+            print "$C_OK" "     $ip: $out"
+        else
+            print "$C_BAD" "     $ip: (no output / unreachable)"
+        fi
     done
-    print "$C_WARN" "   runtime only - a reboot resets every node to link quality (0)"
     return 0
 }
 
@@ -793,8 +799,12 @@ band_show() {
             print "$C_BAD" "   $ip: (no HaLow/2.4 GHz mesh ifaces, or unreachable)"
             continue
         fi
-        printf '   %-15s mode=%-13s haLow=%s 2.4G=%s tx=%s dBm\n' \
-            "$ip" "$(band_mode_name "$BP_H")" "$BH_IF" "$BM_IF" "${BM_TX:-?}"
+        local live persisted
+        live=$(band_mode_name "$BP_H")
+        persisted=$(band_mode_name "${BP_FILE:-}")
+        [ -z "${BP_FILE:-}" ] && persisted="(not set)"
+        printf '   %-15s %-14s (persisted: %s)  haLow=%s 2.4G=%s\n' \
+            "$ip" "$live" "$persisted" "$BH_IF" "$BM_IF"
     done
     return 0
 }
@@ -891,8 +901,8 @@ band_swapper() {
    batman-adv already routes each hop over its best band by measured link
    quality: close nodes ride 2.4 GHz (fast); as they drift apart, 2.4 GHz
    fades and the route migrates to sub-1 GHz HaLow (long range). This only
-   tunes HOW eager that migration is, and lets you test it. It is a runtime
-   setting: a reboot resets every node to link quality.
+   tunes HOW eager that migration is, and lets you test it. The choice is
+   persisted per node, so it survives reboots and battery swaps.
 
      l. set LINK-QUALITY mode   hop_penalty HaLow=0. Switch to HaLow the
                                 instant 2.4 GHz measures worse. Fastest

@@ -1,0 +1,12 @@
+[Unit]
+Description=MANET band priority - apply persisted HaLow hop_penalty
+After=batman-enslave.service
+Wants=batman-enslave.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/manet-band-priority-apply.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

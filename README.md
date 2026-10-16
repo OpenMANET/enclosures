@@ -79,6 +79,7 @@ Re-check any time with `scripts/fleet-check.sh` (read-only).
 | brcmfmac blacklisted on c370, c5ec | lab policy | never (policy) | `scripts/apply-radio-policy.sh <ip>` |
 | `auto_update=n` | temporary | a release contains PR #8 | `scripts/set-auto-update.sh y\|n` |
 | OpenVLM mic capture at 90% (lands 91%, +20 dB) | fleet standard since 2026-10-16 | never (policy) | `scripts/set-mic-gain.sh` |
+| Band priority: HaLow `hop_penalty` (link-quality / sticky) | lab policy, persistent | never (policy) | `scripts/fleet-status.sh` menu 10 |
 
 Voice config keys added by the patch (`/etc/mesh.conf`, read at start-up):
 `voice_playback_pct` (100), `voice_rx_gain_db` (18, max 24),
@@ -90,6 +91,19 @@ OpenVLM card. Fleet standard is 90% (the codec steps 1 dB, so it lands on
 `/var/lib/alsa/asound.state` so `alsa-restore.service` restores it at boot.
 Note: hot-plugging a fresh board starts at the ~57% default — run
 `scripts/set-mic-gain.sh <ip>` after plugging it in.
+
+**Band priority (2.4 GHz vs HaLow).** batman-adv already routes each hop over
+its best band by measured link quality, so close nodes ride 2.4 GHz and the
+route migrates to sub-1 GHz HaLow as they drift apart. The band swapper
+(`scripts/fleet-status.sh`, menu 10) only tunes how eager that migration is,
+by the HaLow hardif's `hop_penalty`: **link quality** (penalty 0, the default)
+switches the instant 2.4 GHz measures worse; **sticky** (penalty N) holds 2.4
+GHz until HaLow is clearly better, reducing flapping for mobile nodes. The
+choice is persisted per node in `/etc/manet-band-halow-hop-penalty` and
+re-applied at boot by `manet-band-priority.service` (installed on demand), so
+it survives reboots and battery swaps. The same menu offers a handoff **test**
+that briefly takes one node's 2.4 GHz radio down (it stays meshed over HaLow)
+and shows the other nodes' routes flipping to HaLow and back.
 
 ---
 
@@ -128,7 +142,8 @@ Then re-apply what the release still lacks:
 - `scripts/deploy-voice-tab-fix.sh`, unless the release has the tab fix. It
   reports "unexpected file contents" and changes nothing if the file moved on.
 
-The brcmfmac blacklist and the ALSA mic level survive updates.
+The brcmfmac blacklist, the ALSA mic level and the band-priority setting all
+survive updates (they live outside the files the release replaces).
 
 ---
 
