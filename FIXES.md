@@ -10,6 +10,24 @@ Scripts referenced here live in `scripts/`. All of them read `.credentials` and
 
 ---
 
+## 2026-10-16: Mic capture raised to 91% (closest to 90%) fleet-wide
+
+`Mic` capture on the OpenVLM voice card set from 57% (20/35, +8 dB) to
+91% (32/35, +20 dB) on all four nodes; 90% is not a reachable step (1 dB
+per step). Persisted via `alsactl store` into the card-named section of
+`/var/lib/alsa/asound.state` (`state.OpenVLM` on c370/c5ec, `state.Device`
+on 0825/5ab8 — the same boards enumerate under different card names), so
+`alsa-restore.service` restores it at boot.
+
+Note: hot-plugging the OpenVLM board does not re-run `alsa-restore`, so a
+freshly plugged board starts at the ~57% default until re-set or reboot.
+
+Also confirmed: c370 now has both the u-blox 7 GPS (gpsd active, fix) and
+the OpenVLM board; `mesh-voice` re-attached to the hot-plugged card
+automatically (PR #8 hot-plug handling).
+
+---
+
 ## 2026-10-13: c370 HaLow restored by replacing its USB cable (hardware)
 
 **Problem.** c370's HaLow radio died about 10-20 s after loading (USB `-71`,
