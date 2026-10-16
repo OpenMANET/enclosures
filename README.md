@@ -105,6 +105,14 @@ it survives reboots and battery swaps. The same menu offers a handoff **test**
 that briefly takes one node's 2.4 GHz radio down (it stays meshed over HaLow)
 and shows the other nodes' routes flipping to HaLow and back.
 
+**Distance checker.** Menu 11 estimates node ranges from 2.4 GHz RSSI using a
+log-distance path-loss model (`d = 10^((TX+G_tx+G_rx−FSPL(1m)−RSSI)/(10N))`,
+antenna gains default 0 dBi, exponent N=2 — tune `DIST_G_*`/`DIST_N` at the
+top of `scripts/fleet-status.sh`). It prints a from/to matrix; a `no 2.4G` cell
+means that pair only links over HaLow (beyond 2.4 GHz range). Ranges are
+approximate but good for seeing which nodes are clustered vs far apart. (HaLow
+RSSI isn't used because the morse driver reports it on a non-dBm scale.)
+
 ---
 
 ## Scripts

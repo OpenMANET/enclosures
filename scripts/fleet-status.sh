@@ -32,6 +32,16 @@ REMOTE="$REPO_ROOT/scripts/remote/fleet-status.sh"
 STICKY_PENALTY=1     # hop_penalty applied to the HaLow hardif in sticky mode
 TEST_HOLD_SEC=25     # how long the test holds 2.4 GHz down
 
+# Distance checker: log-distance path-loss model on 2.4 GHz RSSI.
+#   d = 10^((TX + G_TX + G_RX - FSPL(1m) - RSSI) / (10*N))
+# Gains are unknown for these radios; default 0 dBi (tune to refine).
+# N is the path-loss exponent (2 = free space, 2-3 indoor).
+DIST_FREQ_MHZ=2437   # 2.4 GHz centre; the few-MHz spread is negligible
+DIST_G_TX=0          # transmit antenna gain, dBi
+DIST_G_RX=0          # receive antenna gain, dBi
+DIST_N=2             # path-loss exponent
+DIST_MAX_M=500       # beyond this the model is unreliable; show a cap
+
 # Problem list: parallel arrays, index i -> ip, label, kind, arg, desc.
 # kind is an enum: svc (restart a service), mic (apply the mic standard),
 # none (no automatic fix: shell/reboot/skip).
@@ -930,9 +940,80 @@ EOF
     return 0
 }
 
+# --- distance checker: 2.4 GHz RSSI -> range (log-distance model) ---------
+
+# dist_m <tx_dbm> <rssi_dbm> -> estimated metres (capped), via the model.
+dist_m() {
+    awk -v tx="$1" -v rssi="$2" -v gtx="$DIST_G_TX" -v grx="$DIST_G_RX" \
+        -v n="$DIST_N" -v f="$DIST_FREQ_MHZ" -v cap="$DIST_MAX_M" 'BEGIN {
+        fspl1 = 32.44 + 20 * log(f) / log(10) - 60
+        d = exp(((tx + gtx + grx - fspl1 - rssi) / (10 * n)) * log(10))
+        if (d > cap)      printf ">%dm", cap
+        else if (d < 10)  printf "%.1fm", d
+        else              printf "%dm", d + 0.5
+    }'
+    return 0
+}
+
+dist_show() {
+    declare -A MAC=() TX=() HOST=() RSSI=()
+    local ips ip line a b
+    ips=""
+    while IFS= read -r ip; do
+        [ -n "$ip" ] && ips="$ips $ip"
+    done < <(fleet_ips)
+
+    # Collect each node's 2.4 GHz identity + measured peer RSSIs.
+    for ip in $ips; do
+        line=$(node_root_script "$ip" "$REPO_ROOT/scripts/remote/dist-probe.sh" 2>/dev/null)
+        [ -n "$line" ] || continue
+        while IFS= read -r a; do
+            case $a in
+            HOST=*)      HOST[$ip]=${a#HOST=} ;;
+            MESH24_MAC=*) MAC[$ip]=${a#MESH24_MAC=} ;;
+            TXDBM=*)     TX[$ip]=${a#TXDBM=} ;;
+            PEER=*)
+                b=${a#PEER=}
+                RSSI["$ip|${b%% *}"]=${b##*RSSI=} ;;
+            esac
+        done <<<"$line"
+    done
+
+    echo
+    print "$C_DIM" "   2.4 GHz RSSI -> range (log-distance model; approximate,"
+    print "$C_DIM" "   tune DIST_G_* / DIST_N at the top of the script). A cell is"
+    print "$C_DIM" "   what the row node measures to the column node; 'no 2.4G' means"
+    print "$C_DIM" "   they only link over HaLow (beyond 2.4 GHz range)."
+    echo
+    printf '   %-12s' "from \\ to"
+    for ip in $ips; do printf '  %-10s' "${HOST[$ip]:-$ip}"; done
+    echo
+    local ip2 m r
+    for ip in $ips; do
+        printf '   %-12s' "${HOST[$ip]:-$ip}"
+        for ip2 in $ips; do
+            if [ "$ip" = "$ip2" ]; then
+                printf '  %-10s' "-"
+            elif [ -z "${MAC[$ip2]:-}" ]; then
+                printf '  %-10s' "?"
+            else
+                m=${MAC[$ip2]}
+                r=${RSSI["$ip|$m"]:-}
+                if [ -z "$r" ]; then
+                    printf '  %-10s' "no 2.4G"
+                else
+                    printf '  %-10s' "$(dist_m "${TX[$ip]:-30}" "$r")"
+                fi
+            fi
+        done
+        echo
+    done
+    return 0
+}
+
 # One menu line: cyan number, plain name, dim description.
 menu_item() {  # $1 num $2 name $3 desc
-    printf '    %s%s.%s  %-13s %s%s%s\n' \
+    printf '    %s%2s.%s  %-13s %s%s%s\n' \
         "$C_HEAD" "$1" "$C_RST" "$2" "$C_DIM" "$3" "$C_RST"
     return 0
 }
@@ -953,6 +1034,7 @@ menu() {
         menu_item 8 "node scan"    "find fleet nodes on this machine's network"
         menu_item 9 "region"       "regulatory domain + HaLow plan; reboots to apply"
         menu_item 10 "band swapper" "prefer 2.4G near / HaLow far; mode + handoff test"
+        menu_item 11 "distances"    "estimate node ranges from 2.4 GHz signal"
         menu_item q "quit"         ""
         ask "    > "
         case $ANSWER in
@@ -977,6 +1059,7 @@ menu() {
         8) scan_menu ;;
         9) region_menu ;;
         10) band_swapper ;;
+        11) dist_show ;;
         q) return 0 ;;
         *) echo "   unknown choice" ;;
         esac
