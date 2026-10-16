@@ -32,7 +32,7 @@ REMOTE="$REPO_ROOT/scripts/remote/fleet-status.sh"
 P_IP=() P_LBL=() P_KIND=() P_ARG=() P_DESC=()
 
 # Per-node facts, filled by collect(); count mode is used by recheck().
-C_ip="" C_host="" C_unreachable=0 C_notes="" C_count=0 C_count_mode=0
+C_ip="" C_host="" C_unreachable=0 C_count=0 C_count_mode=0
 
 # Append a problem, or just count it while rechecking.
 add_problem() {
@@ -71,7 +71,7 @@ collect() {
     C_w0="" C_w1="" C_w2=""
     C_freq=0 C_peers=0 C_usb=0 C_n24=0 C_nhalo=0
     C_vptt="" C_vblocked="" C_gps=none C_gps_active="" C_gps_fix="" C_mic=none
-    C_unreachable=0 C_notes=""
+    C_unreachable=0
 
     local out
     if ! out=$(node_root_script "$C_ip" "$REMOTE" 2>/dev/null); then
@@ -171,41 +171,37 @@ collect() {
         fi
     fi
 
-    if [ "$C_gps" = "present" ]; then
-        if [ "$C_gps_active" != "active" ]; then
-            add_problem svc gpsd "gpsd not active"
-        fi
-        if [ "$C_gps_fix" != "true" ]; then
-            C_notes="$C_notes; no GPS fix yet (indoor?)"
-        fi
+    if [ "$C_gps" = "present" ] && [ "$C_gps_active" != "active" ]; then
+        add_problem svc gpsd "gpsd not active"
     fi
 
-    if [ "$C_mic" = "none" ]; then
-        C_notes="$C_notes; no OpenVLM board"
-    elif [ "$C_mic" != "$MIC_STD" ]; then
+    if [ "$C_mic" != "none" ] && [ "$C_mic" != "$MIC_STD" ]; then
         add_problem mic "$MIC_STD" "mic capture $C_mic, standard is $MIC_STD (91%)"
     fi
     return 0
 }
 
-# One "drv|type|ch|ssid|inbat" radio line, labeled.
+# One "drv|type|ch|ssid|inbat" radio line, column-aligned.
 show_radio() {  # $1 label $2 raw
     local d t c s b bat0str="no"
     IFS='|' read -r d t c s b <<<"$2"
     [ "$b" = "1" ] && bat0str="yes"
-    print "" "      $1   $d   $t   ch $c   ssid ${s:--}   bat0 $bat0str"
+    [ "$s" = "none" ] && s="--"
+    printf '        %-6s  %-9s  %-5s  ch %-4s  %-15s  bat0 %s\n' \
+        "$1" "$d" "$t" "$c" "${s:--}" "$bat0str"
     return 0
 }
 
 show_node() {
+    local i nprob=$(( ${#P_IP[@]} - ${NODE_PROBLEMS_START:-0} ))
     print "$C_DIM" "----------------------------------------------------------------"
     if [ "$C_unreachable" -eq 1 ]; then
-        print "$C_HEAD" "  $C_host ($C_ip)"
-        print "$C_BAD" "      UNREACHABLE  (power? cable?)"
+        print "$C_HEAD" "  $C_host $C_DIM($C_ip)$C_RST $C_BAD[unreachable]"
+        print "$C_BAD" "      ! node unreachable (power? cable?)"
         return 0
     fi
 
-    local halow halow_ok=1 gps mic voice
+    local halow halow_ok=1 gps mic voice tag
     if [ "$C_freq" = "$HALOW_KHZ" ] && [ "$C_peers" -ge 1 ]; then
         halow="$C_OK up: ${C_freq} kHz, ${C_peers} peers"
     else
@@ -233,24 +229,27 @@ show_node() {
     else
         voice="$C_BAD ptt $C_vptt, blocked $C_vblocked"
     fi
+    if [ "$nprob" -gt 0 ]; then
+        tag="$C_BAD[$nprob problem(s)]"
+    else
+        tag="$C_OK[ok]"
+    fi
 
-    print "$C_HEAD" "  $C_host ($C_ip)"
-    print "" "      up $(fmt_up "$C_up_s")   ver $C_ver   auto_update=$C_au"
-    print "$C_DIM" "      radios   (2.4G mesh / 5G AP off-mesh / HaLow mesh on bat0)"
+    print "$C_HEAD" "  $C_host $C_DIM($C_ip)$C_RST $tag"
+    print "" "      up $(fmt_up "$C_up_s")   ver $C_ver   auto_update $C_au"
+    print "$C_DIM" "      radios  (2.4G + HaLow mesh on bat0; 5G AP off-mesh)"
     show_radio "2.4G" "$C_w0"
     show_radio "AP" "$C_w1"
     show_radio "HaLow" "$C_w2"
-    print "" "      mesh     2.4G ${C_n24} nbrs   HaLow ${C_nhalo} nbrs   usb_err5m ${C_usb}"
-    [ "$halow_ok" -eq 0 ] && print "" "      $halow"
-    print "" "      voice    $voice"
-    print "" "      gps      $gps   mic $mic${C_notes:+ $C_DIM$C_notes$C_RST}"
+    printf '      %-7s 2.4G %d nbrs  HaLow %d nbrs  usb_err5m %s\n' \
+        "mesh" "$C_n24" "$C_nhalo" "$C_usb"
+    [ "$halow_ok" -eq 0 ] && printf '      %-7s %b\n' "haLow" "$halow"
+    printf '      %-7s %b\n' "voice" "$voice"
+    printf '      %-7s %b   mic %b\n' "gps" "$gps" "$mic"
 
-    # This node's problems, if any.
-    local i
     for ((i = ${NODE_PROBLEMS_START:-0}; i < ${#P_IP[@]}; i++)); do
         print "$C_BAD" "      ! ${P_DESC[$i]}"
     done
-    [ "$i" -eq "${NODE_PROBLEMS_START:-0}" ] && print "$C_OK" "      ok"
     return 0
 }
 
