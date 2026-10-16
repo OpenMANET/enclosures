@@ -10,6 +10,23 @@ Scripts referenced here live in `scripts/`. All of them read `.credentials` and
 
 ---
 
+## 2026-10-16: c5ec HaLow restored by replacing its USB cable (hardware)
+
+**Problem.** c5ec's HaLow died the same way c370's had: `-71`/`-110` USB
+timeouts then an unreachable chip (`-19`), 0 peers. Its board (`…2f:12`)
+failed, and the old board (`…28:7e`) failed on the same cable/port too —
+two boards, one cable, so the cable was the suspect (mirrors c370).
+
+**Fix.** New USB cable on c5ec, keeping board `…28:7e`. After it: zero USB
+errors, chip answers at 863.5 MHz, 3 HaLow peers. `…28:7e` is now proven
+good; c5ec's old cable is confirmed bad (second bad cable after c370's).
+
+**Board placement now.** c5ec: `…28:7e`. Shelf: `…2f:12` (c5ec's original,
+untested on a good cable). c5ec's `wlan2` pin re-set to `…28:7e`
+(`/etc/systemd/network/10-wlan2.link`), so cold boots are stable.
+
+---
+
 ## 2026-10-16: Mic capture raised to 91% (closest to 90%) fleet-wide
 
 `Mic` capture on the OpenVLM voice card set from 57% (20/35, +8 dB) to
@@ -41,11 +58,10 @@ Two of those boards worked in 0825, so the fault was on c370's side.
 After it: zero USB errors over 10+ minutes, HaLow at 863.5 MHz, peers with all
 three nodes.
 
-**Board placement now.** c370: `…28:67` (0825's original). 0825: `…28:f5` (the
-spare). Spare on the shelf: `…28:7e` (c370's original, probably fine, its
-fault was likely the same cable). Each node's `wlan2` pin
-(`/etc/systemd/network/10-wlan2.link`) matches its current board: 0825 via
-`radio-setup.sh`, c370 edited by hand to the same format.
+**Board placement then.** c370: `…28:67` (0825's original). 0825: `…28:f5` (the
+spare). `…28:7e` (c370's original) went to the shelf, then to c5ec and was
+proven good there (see the 2026-10-16 cable entry). Each node's `wlan2` pin
+(`/etc/systemd/network/10-wlan2.link`) matches its current board.
 
 **Swapping a HaLow board (procedure).** A new board's MAC matches no pin and a
 cold boot can leave the node with no mesh or AP. Instead:

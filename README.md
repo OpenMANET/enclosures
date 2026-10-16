@@ -23,7 +23,7 @@ hardware Raspberry Pi CM4 Rev 1.1.
 |---|---|---|---|---|---|
 | mesh-c370 | 10.30.2.46 | `rdt-manet-c370` | present, blacklisted | 0c:bf:74:00:28:67 | yes |
 | mesh-0825 | 10.30.2.61 | `rdt-manet-0825` | none | 0c:bf:74:00:28:f5 | yes |
-| mesh-c5ec | 10.30.2.101 | `rdt-manet-c5ec` | present, blacklisted | 0c:bf:74:00:2f:12 | yes |
+| mesh-c5ec | 10.30.2.101 | `rdt-manet-c5ec` | present, blacklisted | 0c:bf:74:00:28:7e | yes |
 | mesh-5ab8 | 10.30.2.166 | `rdt-manet-5ab8` | none | 0c:bf:74:00:2f:00 | yes |
 
 Power: the nodes run from one shared lab bench power supply via twist-lock
@@ -152,6 +152,11 @@ The brcmfmac blacklist and the ALSA mic level survive updates.
   restart; check its headset and cable if it recurs.
 - **Repeated names in `talker_names`.** Expected: a restarted node gets a new
   stream ID and receivers keep the old one.
+- **HaLow USB cable is a recurring fault (c370, c5ec).** A bad cable makes the
+  chip throw `-71`/`-110` then go unreachable (`-19`), 0 peers, within minutes.
+  Two different boards failed on the same cable before the swap proved it. When
+  a node's HaLow dies this way, swap in a known-good cable first (fixed both
+  nodes) before suspecting the board.
 
 ---
 
