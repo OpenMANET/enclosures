@@ -110,8 +110,17 @@ log-distance path-loss model (`d = 10^((TX+G_tx+G_rx−FSPL(1m)−RSSI)/(10N))`,
 antenna gains default 0 dBi, exponent N=2 — tune `DIST_G_*`/`DIST_N` at the
 top of `scripts/fleet-status.sh`). It prints a from/to matrix; a `no 2.4G` cell
 means that pair only links over HaLow (beyond 2.4 GHz range). Ranges are
-approximate but good for seeing which nodes are clustered vs far apart. (HaLow
-RSSI isn't used because the morse driver reports it on a non-dBm scale.)
+ approximate but good for seeing which nodes are clustered vs far apart. (HaLow
+ RSSI isn't used because the morse driver reports it on a non-dBm scale.)
+
+**HaLow region / frequency.** The fleet runs the **EU plan: 863.5 MHz, 1 MHz**
+(`regulatory_domain=RO`, mapped to HaLow `EU`). The US plan is 907 MHz, 2 MHz —
+the two share no channels, so a US↔EU change is fleet-wide and needs a reboot
+per node. Menu 9 wraps the upstream `manet-region.py` to do this (it warns on a
+plan change and reboots targets one at a time, your AP node last). **Built and
+dry-tested but not applied** — US HaLow on this MM8108 firmware is unverified,
+so the recommended first step is a single-node US test before switching the
+fleet.
 
 ---
 
