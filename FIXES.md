@@ -26,6 +26,9 @@ Also confirmed: c370 now has both the u-blox 7 GPS (gpsd active, fix) and
 the OpenVLM board; `mesh-voice` re-attached to the hot-plugged card
 automatically (PR #8 hot-plug handling).
 
+Adopted as the fleet standard for current and future nodes; apply with
+`scripts/set-mic-gain.sh` (defaults to 90%).
+
 ---
 
 ## 2026-10-13: c370 HaLow restored by replacing its USB cable (hardware)

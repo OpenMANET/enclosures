@@ -78,10 +78,18 @@ Re-check any time with `scripts/fleet-check.sh` (read-only).
 | Blank VOICE tab fix in `manet_manage.py` | queued by maintainer | next release | `scripts/deploy-voice-tab-fix.sh` |
 | brcmfmac blacklisted on c370, c5ec | lab policy | never (policy) | `scripts/apply-radio-policy.sh <ip>` |
 | `auto_update=n` | temporary | a release contains PR #8 | `scripts/set-auto-update.sh y\|n` |
+| OpenVLM mic capture at 90% (lands 91%, +20 dB) | fleet standard since 2026-10-16 | never (policy) | `scripts/set-mic-gain.sh` |
 
 Voice config keys added by the patch (`/etc/mesh.conf`, read at start-up):
 `voice_playback_pct` (100), `voice_rx_gain_db` (18, max 24),
 `voice_ptt_beep_pct` (20, 0 = off). The fleet runs the defaults.
+
+Mic capture is not in `/etc/mesh.conf`; it is the ALSA `Mic` control on the
+OpenVLM card. Fleet standard is 90% (the codec steps 1 dB, so it lands on
+91% / +20 dB / value 32 of 35), persisted in the card-named section of
+`/var/lib/alsa/asound.state` so `alsa-restore.service` restores it at boot.
+Note: hot-plugging a fresh board starts at the ~57% default — run
+`scripts/set-mic-gain.sh <ip>` after plugging it in.
 
 ---
 
@@ -97,6 +105,7 @@ All take optional node IPs; default is every node in `nodes`.
 | `scripts/deploy-voice-tab-fix.sh` | runs `fixes/voice-tab/voice_webGUI_fix.sh`, idempotent | restarts web UI |
 | `scripts/apply-radio-policy.sh <ip>` | blacklists brcmfmac, reboots, reruns `radio-setup.sh` | reboots |
 | `scripts/set-auto-update.sh y\|n` | sets `auto_update` | yes |
+| `scripts/set-mic-gain.sh [pct]` | OpenVLM mic capture, fleet standard 90%; persists ALSA state | the audio card |
 
 `scripts/lib.sh` holds the SSH/sudo helpers; `scripts/remote/` holds the parts
 that run on the node.
@@ -118,7 +127,7 @@ Then re-apply what the release still lacks:
 - `scripts/deploy-voice-tab-fix.sh`, unless the release has the tab fix. It
   reports "unexpected file contents" and changes nothing if the file moved on.
 
-The brcmfmac blacklist survives updates.
+The brcmfmac blacklist and the ALSA mic level survive updates.
 
 ---
 
