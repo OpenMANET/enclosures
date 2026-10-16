@@ -190,29 +190,67 @@ collect() {
 
 # One "drv|type|ch|ssid|inbat" radio line, labeled.
 show_radio() {  # $1 label $2 raw
-    local d t c s b
+    local d t c s b bat0str="no"
     IFS='|' read -r d t c s b <<<"$2"
-    echo "     $1: drv=$d type=$t ch=$c ssid=$s bat0=$b"
+    [ "$b" = "1" ] && bat0str="yes"
+    print "" "      $1   $d   $t   ch $c   ssid ${s:--}   bat0 $bat0str"
     return 0
 }
 
 show_node() {
-    echo "---- $C_host ($C_ip)"
+    print "$C_DIM" "----------------------------------------------------------------"
     if [ "$C_unreachable" -eq 1 ]; then
-        echo "     unreachable"
+        print "$C_HEAD" "  $C_host ($C_ip)"
+        print "$C_BAD" "      UNREACHABLE  (power? cable?)"
         return 0
     fi
-    local gps="none"
-    if [ "$C_gps" = "present" ]; then
-        gps="up (active=$C_gps_active fix=$C_gps_fix)"
+
+    local halow halow_ok=1 gps mic voice
+    if [ "$C_freq" = "$HALOW_KHZ" ] && [ "$C_peers" -ge 1 ]; then
+        halow="$C_OK up: ${C_freq} kHz, ${C_peers} peers"
+    else
+        halow_ok=0
+        halow="$C_BAD down: ${C_freq} kHz, ${C_peers} peers"
     fi
-    echo "     up $(fmt_up "$C_up_s")  ver $C_ver  auto_update=$C_au"
+    if [ "$C_gps" = "present" ]; then
+        if [ "$C_gps_fix" = "true" ]; then
+            gps="$C_OK up, fix"
+        else
+            gps="$C_WARN up, no fix (indoor?)"
+        fi
+    else
+        gps="$C_DIM none"
+    fi
+    if [ "$C_mic" = "$MIC_STD" ]; then
+        mic="$C_OK $C_mic"
+    elif [ "$C_mic" = "none" ]; then
+        mic="$C_WARN none (board out)"
+    else
+        mic="$C_BAD $C_mic (want $MIC_STD)"
+    fi
+    if [ "$C_vptt" = "true" ] && [ "$C_vblocked" = "false" ]; then
+        voice="$C_OK ok"
+    else
+        voice="$C_BAD ptt $C_vptt, blocked $C_vblocked"
+    fi
+
+    print "$C_HEAD" "  $C_host ($C_ip)"
+    print "" "      up $(fmt_up "$C_up_s")   ver $C_ver   auto_update=$C_au"
+    print "$C_DIM" "      radios   (2.4G mesh / 5G AP off-mesh / HaLow mesh on bat0)"
     show_radio "2.4G" "$C_w0"
     show_radio "AP" "$C_w1"
-    show_radio "1G" "$C_w2"
-    echo "     halow: ${C_freq} kHz, ${C_peers} peers, usb_err5m=${C_usb}, ap_if=$C_ap_if"
-    echo "     neighbours: 2.4=$C_n24 halow=$C_nhalo   voice: ptt=${C_vptt:-?} blocked=${C_vblocked:-?}"
-    echo "     gps: $gps   mic: $C_mic$C_notes"
+    show_radio "HaLow" "$C_w2"
+    print "" "      mesh     2.4G ${C_n24} nbrs   HaLow ${C_nhalo} nbrs   usb_err5m ${C_usb}"
+    [ "$halow_ok" -eq 0 ] && print "" "      $halow"
+    print "" "      voice    $voice"
+    print "" "      gps      $gps   mic $mic${C_notes:+ $C_DIM$C_notes$C_RST}"
+
+    # This node's problems, if any.
+    local i
+    for ((i = ${NODE_PROBLEMS_START:-0}; i < ${#P_IP[@]}; i++)); do
+        print "$C_BAD" "      ! ${P_DESC[$i]}"
+    done
+    [ "$i" -eq "${NODE_PROBLEMS_START:-0}" ] && print "$C_OK" "      ok"
     return 0
 }
 
@@ -248,6 +286,24 @@ reboot_node() {
     return 0
 }
 
+# Colors: plain when output is not a terminal.
+if [ -t 1 ]; then
+    C_OK=$'\e[32m' C_BAD=$'\e[31m' C_WARN=$'\e[33m' C_HEAD=$'\e[1;36m'
+    C_DIM=$'\e[2m' C_RST=$'\e[0m'
+else
+    C_OK="" C_BAD="" C_WARN="" C_HEAD="" C_DIM="" C_RST=""
+fi
+
+# print <color> <text>
+print() {
+    if [ -n "$2" ]; then
+        printf '%s%s%s\n' "$1" "$2" "$C_RST"
+    else
+        printf '\n'
+    fi
+    return 0
+}
+
 # Read one line from the user; sets ANSWER. Prefers /dev/tty so prompts
 # stay interactive even when stdin is redirected. EOF means no user.
 ask() {  # $1 prompt text
@@ -266,7 +322,7 @@ ask() {  # $1 prompt text
 prompt() {
     local i=$1
     echo
-    echo "[ $((i + 1))/${#P_IP[@]}] ${P_LBL[$i]} (${P_IP[$i]}): ${P_DESC[$i]}"
+    print "$C_BAD" "  [ $((i + 1))/${#P_IP[@]}] ${P_LBL[$i]} (${P_IP[$i]}): ${P_DESC[$i]}"
     case ${P_KIND[$i]} in
     svc) echo "     recommended fix: systemctl restart ${P_ARG[$i]}" ;;
     mic) echo "     recommended fix: apply mic standard (${MIC_STD} = 91%)" ;;
@@ -281,12 +337,12 @@ interact() {
     local total=${#P_IP[@]} i=0
     if [ "$total" -eq 0 ]; then
         echo
-        echo "All nodes OK."
+        print "$C_OK" "  All nodes OK."
         return 0
     fi
 
     echo
-    echo "$total problem(s) found."
+    print "$C_BAD" "  $total problem(s) found."
     while [ "$i" -lt "$total" ]; do
         prompt "$i"
         case $CHOICE in
@@ -313,24 +369,16 @@ interact() {
         i=$((i + 1))
     done
     echo
-    echo "done; run this script again to verify the fleet is clean."
+    print "$C_WARN" "  done; run status again to verify the fleet is clean."
     return 0
 }
 
 check_fleet() {
-    local ip start n i
+    local ip
     for ip in $(fleet_ips "$@"); do
-        start=${#P_IP[@]}
+        NODE_PROBLEMS_START=${#P_IP[@]}
         collect "$ip"
         show_node
-        n=$(( ${#P_IP[@]} - start ))
-        if [ "$n" -eq 0 ]; then
-            [ "$C_unreachable" -eq 0 ] && echo "     ok"
-        else
-            for ((i = start; i < start + n; i++)); do
-                echo "     ! ${P_DESC[$i]}"
-            done
-        fi
     done
     interact
     return 0
