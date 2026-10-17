@@ -27,10 +27,14 @@ plus an `ifaces` map. HaLow is detected by driver (Morse reports an
 internal frequency, e.g. 5660 for the 863.5 MHz plan). The map reuses the
 distance model from the fleet distance checker.
 
-**State.** Two commits on fork branch `sa-topology-enrich` (`~/dev/MANET`,
-off 0.572): `2308da9` (enrichment) + `bf280b6` (map view). Deployed to all
-four nodes. Awaiting visual sign-off of the Map view, then PR to
-very-srs/MANET.
+**Operators + GPS ranges.** A per-node `operator_name` (Identity section in
+Node Config) is published mesh-wide as the ATAK user and shown on every
+status page: an Operators section lists each node's name + GPS fix + true
+GPS (haversine) distance from this node, and a GPS Ranges section lists
+pairwise distances. Three commits on the branch: `2308da9` (enrichment),
+`bf280b6` (map view), `4465160` (operators + GPS). Deployed to all four
+nodes; verified end-to-end (names aggregate cross-node; GPS ranges need
+2+ fixes, currently only c370 has one). Awaiting PR to very-srs/MANET.
 
 ---
 
