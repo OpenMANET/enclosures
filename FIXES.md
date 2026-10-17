@@ -29,12 +29,17 @@ distance model from the fleet distance checker.
 
 **Operators + GPS ranges.** A per-node `operator_name` (Identity section in
 Node Config) is published mesh-wide as the ATAK user and shown on every
-status page: an Operators section lists each node's name + GPS fix + true
-GPS (haversine) distance from this node, and a GPS Ranges section lists
-pairwise distances. Three commits on the branch: `2308da9` (enrichment),
-`bf280b6` (map view), `4465160` (operators + GPS). Deployed to all four
-nodes; verified end-to-end (names aggregate cross-node; GPS ranges need
-2+ fixes, currently only c370 has one). Awaiting PR to very-srs/MANET.
+status page: an Operators section lists each node's name + position state
++ true GPS (haversine) distance from this node, and a GPS Ranges section
+lists pairwise distances.
+
+**Two branch lines.** The fleet runs the 0.572 build (branch
+`sa-fleet-0572`, tag `fleet-0572-sa` in `~/dev/MANET`), deployed to all four
+nodes and verified end-to-end (names aggregate cross-node; GPS ranges need
+2+ positioned nodes, currently only c370). The upstream contribution is
+`sa-pr` — rebased onto main and conformed to its CSP (addEventListener),
+shared esc(), and positioning model — opened as
+[PR #9](https://github.com/very-srs/MANET/pull/9).
 
 ---
 
