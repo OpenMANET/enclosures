@@ -8,6 +8,12 @@ A 3D-printable, weather-resistant enclosure for a portable mesh radio node built
 
 ## Overview
 
+![Plate carrier presentation](images/1.jpg)
+
+![Assembled enclosure with accessories, next to battery.](images/4.jpg?raw=true)
+
+More pictures can be found in [images/](images/)
+
 This repository contains the printable parts (STL) for a self-contained MANET radio node. The enclosure houses:
 
 - **Raspberry Pi CM4** on a **Waveshare Mini Base Board (A)** carrier
