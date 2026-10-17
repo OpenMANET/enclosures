@@ -10,21 +10,27 @@ Scripts referenced here live in `scripts/`. All of them read `.credentials` and
 
 ---
 
-## 2026-10-17: Status topology enriched with band, RSSI, GPS (canary on 5ab8)
+## 2026-10-17: Status topology enriched with band, RSSI, GPS + map view
 
 **What.** The mesh graph in the node status page now shows which band
 carries each link (2.4G blue / 5G purple / HaLow amber), the measured RSSI
-on the link label and node list, and a GPS badge per node.
+on link labels and the node list, and a GPS badge per node. A **Mesh/Map
+toggle** adds a second view: with 2+ GPS-fixed nodes it projects them onto
+an equirectangular graticule; with fewer (the bench case) it draws a local
+radial view placing each peer at its signal-estimated range with range
+rings. No tiles or external libs — works offline.
 
 **How.** `mesh-status.py` (upstream file) extended: `run_iw_station_rssi()`
 reads per-station signal from each bat0 member; `assemble_status_data()`
 adds per-node `link_band`/`link_rssi`/`gps` and per-edge `band`/`rssi`,
 plus an `ifaces` map. HaLow is detected by driver (Morse reports an
-internal frequency, e.g. 5660 for the 863.5 MHz plan).
+internal frequency, e.g. 5660 for the 863.5 MHz plan). The map reuses the
+distance model from the fleet distance checker.
 
-**State.** Committed on fork branch `sa-topology-enrich`
-(`~/dev/MANET`, off 0.572), canary-deployed on mesh-5ab8 only. Awaiting
-visual sign-off, then fleet-wide deploy + PR to very-srs/MANET.
+**State.** Two commits on fork branch `sa-topology-enrich` (`~/dev/MANET`,
+off 0.572): `2308da9` (enrichment) + `bf280b6` (map view). Deployed to all
+four nodes. Awaiting visual sign-off of the Map view, then PR to
+very-srs/MANET.
 
 ---
 
