@@ -75,6 +75,7 @@ Re-check any time with `scripts/fleet-check.sh` (read-only).
 | Deviation | Status | Drop when | Apply |
 |---|---|---|---|
 | Patched `mesh-voice.py`: OpenVLM hot-plug, playback held at max, +18 dB receive gain, PTT tones | [PR #8](https://github.com/very-srs/MANET/pull/8) | a release contains PR #8 | `scripts/deploy-mesh-voice.sh` |
+| Patched `mesh-status.py`: topology graph shows link band + RSSI + GPS (fork branch `sa-topology-enrich`, PR pending) | local canary on 5ab8 | a release contains the PR | deploy `~/dev/MANET` `mesh-status.py` |
 | Blank VOICE tab fix in `manet_manage.py` | queued by maintainer | next release | `scripts/deploy-voice-tab-fix.sh` |
 | brcmfmac blacklisted on c370, c5ec | lab policy | never (policy) | `scripts/apply-radio-policy.sh <ip>` |
 | `auto_update=n` | temporary | a release contains PR #8 | `scripts/set-auto-update.sh y\|n` |

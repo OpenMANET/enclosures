@@ -10,6 +10,24 @@ Scripts referenced here live in `scripts/`. All of them read `.credentials` and
 
 ---
 
+## 2026-10-17: Status topology enriched with band, RSSI, GPS (canary on 5ab8)
+
+**What.** The mesh graph in the node status page now shows which band
+carries each link (2.4G blue / 5G purple / HaLow amber), the measured RSSI
+on the link label and node list, and a GPS badge per node.
+
+**How.** `mesh-status.py` (upstream file) extended: `run_iw_station_rssi()`
+reads per-station signal from each bat0 member; `assemble_status_data()`
+adds per-node `link_band`/`link_rssi`/`gps` and per-edge `band`/`rssi`,
+plus an `ifaces` map. HaLow is detected by driver (Morse reports an
+internal frequency, e.g. 5660 for the 863.5 MHz plan).
+
+**State.** Committed on fork branch `sa-topology-enrich`
+(`~/dev/MANET`, off 0.572), canary-deployed on mesh-5ab8 only. Awaiting
+visual sign-off, then fleet-wide deploy + PR to very-srs/MANET.
+
+---
+
 ## 2026-10-16: c5ec HaLow restored by replacing its USB cable (hardware)
 
 **Problem.** c5ec's HaLow died the same way c370's had: `-71`/`-110` USB
@@ -25,7 +43,6 @@ good; c5ec's old cable is confirmed bad (second bad cable after c370's).
 untested on a good cable). c5ec's `wlan2` pin re-set to `…28:7e`
 (`/etc/systemd/network/10-wlan2.link`), so cold boots are stable.
 
----
 
 ## 2026-10-16: Mic capture raised to 91% (closest to 90%) fleet-wide
 
