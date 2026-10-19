@@ -12,6 +12,8 @@ This repository collects 3D-printable and off-the-shelf enclosure designs that s
 | [Hammond Enclosure](Hammond/README.md) | OpenMANET enclosure for a Pi 4B using a Hammond 1457K1201BK case plus printed cap/carrier tray; optional inline connector simplifies switch-to-PiSugar wiring for easier rework. |
 | [PRC-148 / PRC-152 Battery](PRC-148-152-Battery/README.md) | Early community design for a 3S2P 18650 twist-lock radio battery and matching radio-side mount. |
 | [Sunkworks VLM-PT1 Enclosure](<Sunkworks VLM PT1 Enclosure/README.md>) | Compact two-piece enclosure for the OpenVLM VLM-KW USB voice/PTT interface, with print files, hardware requirements, and assembly notes. |
+| [rdt MANET Radio Enclosure](rdt_manet_enclosure/README.md) | 3D printed, weather-resistant enclosure for a CM4 on a Waveshare Mini Base Board (A) with MT7916 Wi-Fi 6E and MM8108 HaLow; 4× SMA, waterproof USB-C, M12 Ethernet and magnetic pogo-pin power input. |
+| [Compact OpenMANET Mesh Radio](compact-openmanet-mesh-radio/README.md) | Compact radio-style mesh build with a 3D printed enclosure, internally mounted electronics and external antennas; full repo includes multiple enclosure versions, layouts and antenna mounting options. Full repository: https://github.com/ties1887/Mesh-radio-Halow-LoRa |
 
 ## Other Prints
 
@@ -44,6 +46,14 @@ This repository collects 3D-printable and off-the-shelf enclosure designs that s
 **Sunkworks VLM-PT1**
 
 <img src="Sunkworks%20VLM%20PT1%20Enclosure/pics/assembled-enclosure.jpg" alt="Assembled Sunkworks VLM-PT1 enclosure" width="450" />
+
+**rdt MANET Radio Enclosure**
+
+<img src="rdt_manet_enclosure/images/1.jpg" alt="rdt MANET radio enclosure on a plate carrier" width="450" />
+
+**Compact OpenMANET Mesh Radio**
+
+<img src="https://github.com/user-attachments/assets/370c7427-608a-4964-9bc3-8efe4d934608" alt="Compact OpenMANET mesh radio build" width="450" />
 
 **GIZOisNT**
 
